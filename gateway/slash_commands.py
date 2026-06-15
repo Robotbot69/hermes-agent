@@ -1606,6 +1606,212 @@ class GatewaySlashCommandsMixin:
         meta += "_"
         return content + meta
 
+    async def _handle_fusionlite_command(self, event: MessageEvent) -> str:
+        """Handle /fusionlite — cheaper OpenRouter panel synthesis.
+
+        This is deliberately not the OpenRouter Fusion server tool. It calls a
+        small cheap panel directly and asks a cheap synthesizer model to merge
+        the answers, avoiding Fusion's web/tool orchestration overhead.
+        """
+        prompt = event.get_command_args().strip()
+        if not prompt:
+            return (
+                "Usage: `/fusionlite <question>`\n\n"
+                "Runs a cheaper multi-model panel through OpenRouter without the "
+                "official Fusion server tool. Use `/fusion` for the expensive "
+                "quality mode with OpenRouter's built-in deliberation."
+            )
+
+        def _run_request() -> dict[str, Any]:
+            import concurrent.futures
+            import json
+            import urllib.error
+            import urllib.request
+
+            from hermes_cli.config import get_env_value
+
+            api_key = get_env_value("OPENROUTER_API_KEY")
+            if not api_key:
+                return {"ok": False, "error": "OPENROUTER_API_KEY is not configured."}
+
+            headers = {
+                "Authorization": "Bearer " + api_key,
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://github.com/NousResearch/hermes-agent",
+                "X-Title": "Hermes Telegram Fusion Lite",
+            }
+
+            def _chat(model: str, messages: list[dict[str, str]], max_tokens: int) -> dict[str, Any]:
+                body = json.dumps(
+                    {
+                        "model": model,
+                        "messages": messages,
+                        "max_tokens": max_tokens,
+                        "temperature": 0.2,
+                    }
+                ).encode("utf-8")
+                req = urllib.request.Request(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    data=body,
+                    headers=headers,
+                    method="POST",
+                )
+                try:
+                    with urllib.request.urlopen(req, timeout=35) as response:
+                        data = json.loads(response.read().decode("utf-8"))
+                except urllib.error.HTTPError as exc:
+                    raw = exc.read().decode("utf-8", errors="replace")
+                    return {"ok": False, "model": model, "error": f"HTTP {exc.code}: {raw[:300]}"}
+                except Exception as exc:
+                    return {"ok": False, "model": model, "error": f"{type(exc).__name__}: {str(exc)[:300]}"}
+
+                choice = (data.get("choices") or [{}])[0]
+                content = ((choice.get("message") or {}).get("content") or "").strip()
+                return {
+                    "ok": bool(content),
+                    "model": data.get("model") or model,
+                    "content": content,
+                    "usage": data.get("usage") or {},
+                    "finish_reason": choice.get("finish_reason") or "",
+                    "id": data.get("id") or "",
+                }
+
+            panel_models = [
+                "deepseek/deepseek-v3.2",
+                "qwen/qwen3.7-plus",
+                "moonshotai/kimi-k2.7-code",
+            ]
+            panel_messages = [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are one member of a cheap expert panel. Answer in the user's "
+                        "language. Be concise, concrete, and mention uncertainty. Do not browse."
+                    ),
+                },
+                {"role": "user", "content": prompt},
+            ]
+
+            panel_results: list[dict[str, Any]] = []
+            with concurrent.futures.ThreadPoolExecutor(max_workers=len(panel_models)) as pool:
+                futures = [
+                    pool.submit(_chat, model, panel_messages, 450)
+                    for model in panel_models
+                ]
+                for future in concurrent.futures.as_completed(futures):
+                    try:
+                        panel_results.append(future.result())
+                    except Exception as exc:
+                        panel_results.append({"ok": False, "model": "unknown", "error": str(exc)[:300]})
+
+            good = [item for item in panel_results if item.get("ok") and item.get("content")]
+            if not good:
+                failed = "; ".join(
+                    f"{item.get('model')}: {item.get('error', 'empty response')}"
+                    for item in panel_results
+                )
+                return {"ok": False, "error": f"All Fusion Lite panel models failed. {failed}"}
+
+            panel_block = "\n\n".join(
+                f"MODEL: {item.get('model')}\nANSWER:\n{item.get('content')}"
+                for item in good
+            )
+            synthesis_messages = [
+                {
+                    "role": "system",
+                    "content": (
+                        "Synthesize panel answers into one final answer. Answer in the user's "
+                        "language. Surface consensus, disagreement, and practical conclusion. "
+                        "Be concise. Do not invent sources."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        f"Original question:\n{prompt}\n\n"
+                        f"Panel answers:\n{panel_block}\n\n"
+                        "Write the final synthesized answer."
+                    ),
+                },
+            ]
+            final = _chat("google/gemini-3-flash-preview", synthesis_messages, 800)
+
+            all_usage = [item.get("usage") or {} for item in panel_results]
+            if final.get("usage"):
+                all_usage.append(final.get("usage") or {})
+
+            def _sum_usage(key: str) -> float:
+                total = 0.0
+                for usage in all_usage:
+                    try:
+                        total += float(usage.get(key) or 0)
+                    except Exception:
+                        pass
+                return total
+
+            failed_models = [
+                {"model": item.get("model"), "error": item.get("error") or "empty response"}
+                for item in panel_results
+                if not item.get("ok")
+            ]
+
+            if not final.get("ok"):
+                fallback = "\n\n".join(
+                    f"**{item.get('model')}**\n{item.get('content')}"
+                    for item in good
+                )
+                return {
+                    "ok": True,
+                    "mode": "fusionlite-panel-only",
+                    "model": "panel-only",
+                    "content": fallback,
+                    "failed_models": failed_models + [{"model": final.get("model"), "error": final.get("error")}],
+                    "usage": {
+                        "total_tokens": int(_sum_usage("total_tokens")),
+                        "cost": _sum_usage("cost"),
+                    },
+                    "panel_models": [item.get("model") for item in good],
+                }
+
+            return {
+                "ok": True,
+                "mode": "fusionlite",
+                "model": final.get("model"),
+                "content": final.get("content"),
+                "failed_models": failed_models,
+                "usage": {
+                    "total_tokens": int(_sum_usage("total_tokens")),
+                    "cost": _sum_usage("cost"),
+                },
+                "panel_models": [item.get("model") for item in good],
+            }
+
+        try:
+            result = await asyncio.wait_for(asyncio.to_thread(_run_request), timeout=85)
+        except asyncio.TimeoutError:
+            return "Fusion Lite timed out after 85s. Try a narrower prompt."
+
+        if not result.get("ok"):
+            return f"Fusion Lite failed: `{result.get('error') or 'unknown error'}`"
+
+        content = (result.get("content") or "").strip()
+        usage = result.get("usage") or {}
+        usage_bits = []
+        if usage.get("total_tokens") is not None:
+            usage_bits.append(f"{usage.get('total_tokens')} tokens")
+        if usage.get("cost") is not None:
+            usage_bits.append(f"${float(usage.get('cost') or 0):.6f}")
+        panel = ", ".join(result.get("panel_models") or [])
+        meta = f"\n\n_Fusion Lite via `{result.get('model')}`"
+        if panel:
+            meta += f" · panel: {panel}"
+        if usage_bits:
+            meta += f" · {', '.join(usage_bits)}"
+        if result.get("failed_models"):
+            meta += f" · {len(result.get('failed_models') or [])} failed"
+        meta += "_"
+        return content + meta
+
     async def _handle_codex_runtime_command(self, event: MessageEvent) -> str:
         """Handle /codex-runtime command in the gateway.
 

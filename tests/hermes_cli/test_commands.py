@@ -124,6 +124,13 @@ class TestResolveCommand:
         assert fusion.gateway_only
         assert "fusion" in GATEWAY_KNOWN_COMMANDS
 
+    def test_fusionlite_is_gateway_command(self):
+        fusionlite = resolve_command("fusionlite")
+        assert fusionlite is not None
+        assert fusionlite.name == "fusionlite"
+        assert fusionlite.gateway_only
+        assert "fusionlite" in GATEWAY_KNOWN_COMMANDS
+
     def test_leading_slash_stripped(self):
         assert resolve_command("/help").name == "help"
         assert resolve_command("/bg").name == "background"
@@ -1151,6 +1158,7 @@ class TestTelegramMenuCommands:
         for name in (
             "help",
             "fusion",
+            "fusionlite",
             "new",
             "stop",
             "status",
@@ -1158,7 +1166,7 @@ class TestTelegramMenuCommands:
             "commands",
         ):
             assert name in names
-        for name in ("debug", "restart", "update", "platform", "rollback", "topic"):
+        for name in ("debug", "restart", "update", "platform", "rollback", "topic", "background"):
             assert name not in names
 
     def test_includes_plugin_commands_via_lazy_discovery(self, tmp_path, monkeypatch):

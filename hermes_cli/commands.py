@@ -127,6 +127,8 @@ COMMAND_REGISTRY: list[CommandDef] = [
                args_hint="[model] [--provider name] [--global] [--refresh]"),
     CommandDef("fusion", "Run one-shot OpenRouter Fusion research", "Configuration",
                gateway_only=True, args_hint="[prompt]"),
+    CommandDef("fusionlite", "Run cheaper OpenRouter panel synthesis", "Configuration",
+               gateway_only=True, args_hint="[prompt]"),
     CommandDef("codex-runtime", "Toggle codex app-server runtime for OpenAI/Codex models",
                "Configuration", aliases=("codex_runtime",),
                args_hint="[auto|codex_app_server]"),
@@ -531,6 +533,7 @@ _TELEGRAM_MENU_PRIORITY = (
     # Most-typed everyday commands first.
     "help",
     "fusion",
+    "fusionlite",
     "new",
     "stop",
     "status",
@@ -542,7 +545,6 @@ _TELEGRAM_MENU_PRIORITY = (
     "approve",
     "deny",
     "queue",
-    "background",
     "usage",
     "version",
 )
@@ -1045,7 +1047,7 @@ _SLACK_PRIORITY_ALIASES = ("btw", "bg")
 # the telegram-parity test reads it so an entry here is a deliberate
 # "Slack-via-/hermes" decision, not a silent clamp.
 #   - credits: the billing/top-up surface; reached via /hermes credits on Slack.
-_SLACK_VIA_HERMES_ONLY = frozenset({"credits", "fusion"})
+_SLACK_VIA_HERMES_ONLY = frozenset({"credits", "fusion", "fusionlite"})
 
 
 def _sanitize_slack_name(raw: str) -> str:

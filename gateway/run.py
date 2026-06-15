@@ -7446,6 +7446,9 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
         if canonical == "fusion":
             return await self._handle_fusion_command(event)
 
+        if canonical == "fusionlite":
+            return await self._handle_fusionlite_command(event)
+
         if canonical == "codex-runtime":
             return await self._handle_codex_runtime_command(event)
 
