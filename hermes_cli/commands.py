@@ -125,6 +125,8 @@ COMMAND_REGISTRY: list[CommandDef] = [
                cli_only=True),
     CommandDef("model", "Switch model for this session", "Configuration",
                args_hint="[model] [--provider name] [--global] [--refresh]"),
+    CommandDef("fusion", "Run one-shot OpenRouter Fusion research", "Configuration",
+               gateway_only=True, args_hint="[prompt]"),
     CommandDef("codex-runtime", "Toggle codex app-server runtime for OpenAI/Codex models",
                "Configuration", aliases=("codex_runtime",),
                args_hint="[auto|codex_app_server]"),
@@ -528,31 +530,21 @@ def telegram_bot_commands() -> list[tuple[str, str]]:
 _TELEGRAM_MENU_PRIORITY = (
     # Most-typed everyday commands first.
     "help",
+    "fusion",
     "new",
     "stop",
     "status",
+    "model",
     "resume",
     "sessions",
-    "model",
-    # Maintenance / diagnostics — the ones that prompted this priority list.
-    "debug",
-    "restart",
-    "update",
-    "verbose",
     "commands",
     # Mid-turn session control.
     "approve",
     "deny",
     "queue",
-    "steer",
     "background",
-    # Lower-priority but still useful operational built-ins.
-    "reasoning",
     "usage",
-    "platforms",
-    "platform",
-    "profile",
-    "whoami",
+    "version",
 )
 """Built-in commands that should stay visible in Telegram's capped menu.
 
@@ -1053,7 +1045,7 @@ _SLACK_PRIORITY_ALIASES = ("btw", "bg")
 # the telegram-parity test reads it so an entry here is a deliberate
 # "Slack-via-/hermes" decision, not a silent clamp.
 #   - credits: the billing/top-up surface; reached via /hermes credits on Slack.
-_SLACK_VIA_HERMES_ONLY = frozenset({"credits"})
+_SLACK_VIA_HERMES_ONLY = frozenset({"credits", "fusion"})
 
 
 def _sanitize_slack_name(raw: str) -> str:

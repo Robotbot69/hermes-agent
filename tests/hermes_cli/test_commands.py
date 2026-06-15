@@ -117,6 +117,13 @@ class TestResolveCommand:
         assert topic.name == "topic"
         assert "topic" in GATEWAY_KNOWN_COMMANDS
 
+    def test_fusion_is_gateway_command(self):
+        fusion = resolve_command("fusion")
+        assert fusion is not None
+        assert fusion.name == "fusion"
+        assert fusion.gateway_only
+        assert "fusion" in GATEWAY_KNOWN_COMMANDS
+
     def test_leading_slash_stripped(self):
         assert resolve_command("/help").name == "help"
         assert resolve_command("/bg").name == "background"
@@ -1130,29 +1137,29 @@ class TestTelegramMenuCommands:
                 f"Command '{name}' is {len(name)} chars (limit {_TG_NAME_LIMIT})"
             )
 
-    def test_operational_builtins_survive_thirty_command_cap(self, tmp_path, monkeypatch):
+    def test_telegram_menu_prefers_compact_daily_commands(self, tmp_path, monkeypatch):
         (tmp_path / "config.yaml").write_text(
             "display:\n  tool_progress_command: true\n"
         )
         monkeypatch.setenv("HERMES_HOME", str(tmp_path))
 
-        menu, hidden = telegram_menu_commands(max_commands=30)
+        menu, hidden = telegram_menu_commands(max_commands=14)
         names = [name for name, _desc in menu]
 
-        assert len(names) == 30
+        assert len(names) == 14
         assert hidden > 0
         for name in (
-            "debug",
-            "restart",
-            "update",
-            "verbose",
-            "commands",
             "help",
+            "fusion",
             "new",
             "stop",
             "status",
+            "model",
+            "commands",
         ):
             assert name in names
+        for name in ("debug", "restart", "update", "platform", "rollback", "topic"):
+            assert name not in names
 
     def test_includes_plugin_commands_via_lazy_discovery(self, tmp_path, monkeypatch):
         """Telegram menu generation should discover plugin slash commands on first access."""

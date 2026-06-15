@@ -1496,6 +1496,116 @@ class GatewaySlashCommandsMixin:
 
         return await _finish_switch()
 
+    async def _handle_fusion_command(self, event: MessageEvent) -> str:
+        """Handle /fusion — one-shot OpenRouter Fusion research.
+
+        This intentionally does not switch the session model. Fusion is a beta
+        router/server-tool path and can be slow or temporarily fail upstream, so
+        keep it isolated from the normal gateway agent loop.
+        """
+        prompt = event.get_command_args().strip()
+        if not prompt:
+            return (
+                "Usage: `/fusion <question>`\n\n"
+                "Runs a one-shot OpenRouter Fusion request without changing the "
+                "current Hermes model. Fusion is best for research, comparison, "
+                "and high-cost-of-error questions. Current model stays unchanged."
+            )
+
+        def _run_request() -> dict[str, Any]:
+            import json
+            import urllib.error
+            import urllib.request
+
+            from hermes_cli.config import get_env_value
+
+            api_key = get_env_value("OPENROUTER_API_KEY")
+            if not api_key:
+                return {"ok": False, "error": "OPENROUTER_API_KEY is not configured."}
+
+            body = json.dumps(
+                {
+                    "model": "openrouter/fusion",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "tool_choice": "required",
+                    "max_tokens": 1200,
+                }
+            ).encode("utf-8")
+            req = urllib.request.Request(
+                "https://openrouter.ai/api/v1/chat/completions",
+                data=body,
+                headers={
+                    "Authorization": "Bearer " + api_key,
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "https://github.com/NousResearch/hermes-agent",
+                    "X-Title": "Hermes Telegram Fusion",
+                },
+                method="POST",
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=90) as response:
+                    data = json.loads(response.read().decode("utf-8"))
+            except urllib.error.HTTPError as exc:
+                raw = exc.read().decode("utf-8", errors="replace")
+                return {
+                    "ok": False,
+                    "status": exc.code,
+                    "error": raw[:500],
+                }
+            except Exception as exc:
+                return {
+                    "ok": False,
+                    "error": f"{type(exc).__name__}: {str(exc)[:300]}",
+                }
+
+            choice = (data.get("choices") or [{}])[0]
+            message = choice.get("message") or {}
+            content = message.get("content") or ""
+            usage = data.get("usage") or {}
+            return {
+                "ok": True,
+                "model": data.get("model") or "unknown",
+                "id": data.get("id") or "",
+                "finish_reason": choice.get("finish_reason") or "",
+                "content": content,
+                "usage": usage,
+            }
+
+        try:
+            result = await asyncio.wait_for(asyncio.to_thread(_run_request), timeout=95)
+        except asyncio.TimeoutError:
+            return (
+                "Fusion timed out after 95s. OpenRouter Fusion is beta and may "
+                "hang on server-side deliberation. Try a narrower prompt or retry later."
+            )
+
+        if not result.get("ok"):
+            status = result.get("status")
+            detail = result.get("error") or "unknown error"
+            prefix = f"OpenRouter Fusion failed ({status})" if status else "OpenRouter Fusion failed"
+            return f"{prefix}: `{detail}`"
+
+        content = (result.get("content") or "").strip()
+        if not content:
+            return (
+                "Fusion returned an empty answer. "
+                f"Model: `{result.get('model')}`; finish_reason: `{result.get('finish_reason')}`."
+            )
+
+        usage = result.get("usage") or {}
+        usage_bits = []
+        if usage.get("total_tokens") is not None:
+            usage_bits.append(f"{usage.get('total_tokens')} tokens")
+        if usage.get("cost") is not None:
+            usage_bits.append(f"${float(usage.get('cost') or 0):.6f}")
+        meta = f"\n\n_Fusion via `{result.get('model')}`"
+        if usage_bits:
+            meta += f" · {', '.join(usage_bits)}"
+        if result.get("id"):
+            meta += f" · `{result.get('id')}`"
+        meta += "_"
+        return content + meta
+
     async def _handle_codex_runtime_command(self, event: MessageEvent) -> str:
         """Handle /codex-runtime command in the gateway.
 
