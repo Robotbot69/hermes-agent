@@ -129,6 +129,18 @@ COMMAND_REGISTRY: list[CommandDef] = [
                gateway_only=True, args_hint="[prompt]"),
     CommandDef("fusionlite", "Run cheaper OpenRouter panel synthesis", "Configuration",
                gateway_only=True, args_hint="[prompt]"),
+    CommandDef("osint", "Run local OSIRIS OSINT commands", "Tools & Skills",
+               gateway_only=True, args_hint="[radar|sanctions|address|cve|health] [query]"),
+    CommandDef("osint_radar", "Show local OSIRIS risk radar", "Tools & Skills",
+               gateway_only=True),
+    CommandDef("osint_sanctions", "Check entity against sanctions/crypto-risk", "Tools & Skills",
+               gateway_only=True, args_hint="[query]"),
+    CommandDef("osint_address", "Check wallet/contract/address risk", "Tools & Skills",
+               gateway_only=True, args_hint="[address]"),
+    CommandDef("osint_cve", "Look up a CVE through OSIRIS", "Tools & Skills",
+               gateway_only=True, args_hint="[CVE-YYYY-NNNN]"),
+    CommandDef("osint_health", "Check local OSIRIS health", "Tools & Skills",
+               gateway_only=True),
     CommandDef("codex-runtime", "Toggle codex app-server runtime for OpenAI/Codex models",
                "Configuration", aliases=("codex_runtime",),
                args_hint="[auto|codex_app_server]"),
@@ -359,6 +371,12 @@ ACTIVE_SESSION_BYPASS_COMMANDS: frozenset[str] = frozenset(
         "deny",
         "fusion",
         "fusionlite",
+        "osint",
+        "osint_radar",
+        "osint_health",
+        "osint_sanctions",
+        "osint_address",
+        "osint_cve",
         "help",
         "new",
         "profile",
@@ -536,6 +554,9 @@ _TELEGRAM_MENU_PRIORITY = (
     "help",
     "fusion",
     "fusionlite",
+    "osint",
+    "osint_radar",
+    "osint_sanctions",
     "new",
     "stop",
     "status",
@@ -549,6 +570,9 @@ _TELEGRAM_MENU_PRIORITY = (
     "queue",
     "usage",
     "version",
+    "osint_address",
+    "osint_cve",
+    "osint_health",
 )
 """Built-in commands that should stay visible in Telegram's capped menu.
 
@@ -1049,7 +1073,17 @@ _SLACK_PRIORITY_ALIASES = ("btw", "bg")
 # the telegram-parity test reads it so an entry here is a deliberate
 # "Slack-via-/hermes" decision, not a silent clamp.
 #   - credits: the billing/top-up surface; reached via /hermes credits on Slack.
-_SLACK_VIA_HERMES_ONLY = frozenset({"credits", "fusion", "fusionlite"})
+_SLACK_VIA_HERMES_ONLY = frozenset({
+    "credits",
+    "fusion",
+    "fusionlite",
+    "osint",
+    "osint_radar",
+    "osint_sanctions",
+    "osint_address",
+    "osint_cve",
+    "osint_health",
+})
 
 
 def _sanitize_slack_name(raw: str) -> str:

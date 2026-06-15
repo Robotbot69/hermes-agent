@@ -7096,6 +7096,18 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                 return await self._handle_fusion_command(event)
             if _cmd_def_inner and _cmd_def_inner.name == "fusionlite":
                 return await self._handle_fusionlite_command(event)
+            if _cmd_def_inner and _cmd_def_inner.name == "osint":
+                return await self._handle_osint_command(event)
+            if _cmd_def_inner and _cmd_def_inner.name == "osint_radar":
+                return await self._handle_osint_radar_command(event)
+            if _cmd_def_inner and _cmd_def_inner.name == "osint_health":
+                return await self._handle_osint_health_command(event)
+            if _cmd_def_inner and _cmd_def_inner.name == "osint_sanctions":
+                return await self._handle_osint_sanctions_command(event)
+            if _cmd_def_inner and _cmd_def_inner.name == "osint_address":
+                return await self._handle_osint_address_command(event)
+            if _cmd_def_inner and _cmd_def_inner.name == "osint_cve":
+                return await self._handle_osint_cve_command(event)
 
             # /kanban must bypass the guard. It writes to a profile-agnostic
             # DB (kanban.db), not to the running agent's state. In fact
@@ -7456,6 +7468,24 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
 
         if canonical == "fusionlite":
             return await self._handle_fusionlite_command(event)
+
+        if canonical == "osint":
+            return await self._handle_osint_command(event)
+
+        if canonical == "osint_radar":
+            return await self._handle_osint_radar_command(event)
+
+        if canonical == "osint_health":
+            return await self._handle_osint_health_command(event)
+
+        if canonical == "osint_sanctions":
+            return await self._handle_osint_sanctions_command(event)
+
+        if canonical == "osint_address":
+            return await self._handle_osint_address_command(event)
+
+        if canonical == "osint_cve":
+            return await self._handle_osint_cve_command(event)
 
         if canonical == "codex-runtime":
             return await self._handle_codex_runtime_command(event)

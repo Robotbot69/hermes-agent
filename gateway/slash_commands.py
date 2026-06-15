@@ -1813,6 +1813,140 @@ class GatewaySlashCommandsMixin:
         meta += "_"
         return content + meta
 
+    def _osiris_usage_text(self) -> str:
+        return (
+            "OSIRIS commands:\n"
+            "`/osint_radar` — local risk radar\n"
+            "`/osint_health` — service health\n"
+            "`/osint_sanctions <entity>` — OFAC/OpenSanctions + crypto-risk\n"
+            "`/osint_address <address>` — wallet/contract/address check\n"
+            "`/osint_cve <CVE-YYYY-NNNN>` — CVE lookup\n\n"
+            "Router form:\n"
+            "`/osint radar`\n"
+            "`/osint sanctions Garantex`\n"
+            "`/osint address 0x...`\n"
+            "`/osint cve CVE-2026-42271`"
+        )
+
+    async def _run_osiris_cli(self, args: list[str], *, timeout: float = 60.0) -> str:
+        script = Path("/root/scripts/osiris_intel/osiris_intel.py")
+        if not script.exists():
+            return "OSIRIS wrapper is missing: `/root/scripts/osiris_intel/osiris_intel.py`."
+
+        def _run() -> dict[str, Any]:
+            import subprocess
+
+            try:
+                from tools.environments.local import _sanitize_subprocess_env
+                env = _sanitize_subprocess_env(os.environ.copy())
+            except Exception:
+                env = os.environ.copy()
+            env.setdefault("OSIRIS_BASE_URL", "http://127.0.0.1:3030")
+            try:
+                proc = subprocess.run(
+                    [str(script), *args],
+                    cwd="/root",
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
+                    check=False,
+                )
+            except subprocess.TimeoutExpired:
+                return {"ok": False, "error": f"OSIRIS command timed out after {int(timeout)}s."}
+            except Exception as exc:
+                return {"ok": False, "error": f"{type(exc).__name__}: {str(exc)[:300]}"}
+            return {
+                "ok": proc.returncode == 0,
+                "stdout": proc.stdout.strip(),
+                "stderr": proc.stderr.strip(),
+                "returncode": proc.returncode,
+            }
+
+        result = await asyncio.to_thread(_run)
+        if not result.get("ok"):
+            detail = result.get("stderr") or result.get("stdout") or result.get("error") or "unknown error"
+            return f"OSIRIS failed: `{str(detail)[:900]}`"
+
+        output = (result.get("stdout") or "").strip()
+        if not output:
+            output = "OSIRIS command returned no output."
+        limit = 3600
+        if len(output) > limit:
+            output = output[:limit].rstrip() + "\n\n… truncated. Use shell for full output."
+        return output
+
+    async def _handle_osint_command(self, event: MessageEvent) -> str:
+        """Handle /osint — router for local OSIRIS commands."""
+        raw_args = event.get_command_args().strip()
+        if not raw_args:
+            return self._osiris_usage_text()
+        try:
+            parts = shlex.split(raw_args)
+        except ValueError as exc:
+            return f"OSIRIS argument parse error: `{exc}`"
+        if not parts:
+            return self._osiris_usage_text()
+        action = parts[0].lower().replace("-", "_")
+        rest = raw_args[len(parts[0]):].strip()
+        if action in {"help", "usage"}:
+            return self._osiris_usage_text()
+        if action == "health":
+            return await self._run_osiris_cli(["health"], timeout=20)
+        if action == "radar":
+            return await self._run_osiris_cli(["radar"], timeout=45)
+        if action == "smoke":
+            return await self._run_osiris_cli(["smoke", "--repo", "/root/labs/osiris"], timeout=75)
+        if action == "sanctions":
+            if not rest:
+                return "Usage: `/osint sanctions <entity>`"
+            return await self._run_osiris_cli(["sanctions", rest], timeout=45)
+        if action in {"address", "wallet", "contract"}:
+            if not rest:
+                return f"Usage: `/osint {action} <address-or-query>`"
+            return await self._run_osiris_cli([action, rest.split()[0]], timeout=60)
+        if action == "cve":
+            if not rest:
+                return "Usage: `/osint cve <CVE-YYYY-NNNN>`"
+            return await self._run_osiris_cli(["cve", rest.split()[0]], timeout=35)
+        if action == "kev":
+            return await self._run_osiris_cli(["kev"], timeout=35)
+        if action == "inventory":
+            return await self._run_osiris_cli(["inventory"], timeout=45)
+        if action == "github_reflection":
+            repo = rest or "/root/labs/osiris"
+            return await self._run_osiris_cli(["github-reflection", "--repo", repo], timeout=45)
+        return f"Unknown OSIRIS action `{action}`.\n\n{self._osiris_usage_text()}"
+
+    async def _handle_osint_radar_command(self, event: MessageEvent) -> str:
+        """Handle /osint_radar."""
+        return await self._run_osiris_cli(["radar"], timeout=45)
+
+    async def _handle_osint_health_command(self, event: MessageEvent) -> str:
+        """Handle /osint_health."""
+        return await self._run_osiris_cli(["health"], timeout=20)
+
+    async def _handle_osint_sanctions_command(self, event: MessageEvent) -> str:
+        """Handle /osint_sanctions."""
+        query = event.get_command_args().strip()
+        if not query:
+            return "Usage: `/osint_sanctions <entity>`\nExample: `/osint_sanctions Garantex`"
+        return await self._run_osiris_cli(["sanctions", query], timeout=45)
+
+    async def _handle_osint_address_command(self, event: MessageEvent) -> str:
+        """Handle /osint_address."""
+        query = event.get_command_args().strip()
+        if not query:
+            return "Usage: `/osint_address <wallet-or-contract-address>`"
+        return await self._run_osiris_cli(["address", query.split()[0]], timeout=60)
+
+    async def _handle_osint_cve_command(self, event: MessageEvent) -> str:
+        """Handle /osint_cve."""
+        cve = event.get_command_args().strip()
+        if not cve:
+            return "Usage: `/osint_cve <CVE-YYYY-NNNN>`"
+        return await self._run_osiris_cli(["cve", cve.split()[0]], timeout=35)
+
     async def _handle_codex_runtime_command(self, event: MessageEvent) -> str:
         """Handle /codex-runtime command in the gateway.
 
