@@ -1509,7 +1509,8 @@ class GatewaySlashCommandsMixin:
                 "Usage: `/fusion <question>`\n\n"
                 "Runs a one-shot OpenRouter Fusion request without changing the "
                 "current Hermes model. Fusion is best for research, comparison, "
-                "and high-cost-of-error questions. Current model stays unchanged."
+                "and high-cost-of-error questions. Current model stays unchanged.\n\n"
+                "For cheaper panel synthesis, use `/fusionlite <question>`."
             )
 
         def _run_request() -> dict[str, Any]:

@@ -357,6 +357,8 @@ ACTIVE_SESSION_BYPASS_COMMANDS: frozenset[str] = frozenset(
         "background",
         "commands",
         "deny",
+        "fusion",
+        "fusionlite",
         "help",
         "new",
         "profile",

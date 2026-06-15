@@ -7089,6 +7089,14 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
             if _cmd_def_inner and _cmd_def_inner.name == "background":
                 return await self._handle_background_command(event)
 
+            # /fusion and /fusionlite are isolated one-shot OpenRouter calls;
+            # they do not touch the running agent's transcript or cached model,
+            # so they can run while the main session is busy.
+            if _cmd_def_inner and _cmd_def_inner.name == "fusion":
+                return await self._handle_fusion_command(event)
+            if _cmd_def_inner and _cmd_def_inner.name == "fusionlite":
+                return await self._handle_fusionlite_command(event)
+
             # /kanban must bypass the guard. It writes to a profile-agnostic
             # DB (kanban.db), not to the running agent's state. In fact
             # /kanban unblock is often the only way to free a worker that
