@@ -839,6 +839,21 @@ class TestEditMessageStreamingSafety:
         }
 
     @pytest.mark.asyncio
+    async def test_missing_final_edit_target_does_not_retry_plain_fallback(self):
+        adapter = TelegramAdapter(PlatformConfig(enabled=True, token="fake-token"))
+        adapter._bot = MagicMock()
+        adapter._bot.edit_message_text = AsyncMock(
+            side_effect=Exception("Bad Request: message to edit not found")
+        )
+
+        result = await adapter.edit_message("123", "456", "final **bold**", finalize=True)
+
+        assert result.success is False
+        assert result.retryable is False
+        assert result.error.startswith("message_edit_target_missing:")
+        adapter._bot.edit_message_text.assert_awaited_once()
+
+    @pytest.mark.asyncio
     async def test_message_too_long_splits_into_continuations_not_silent_truncation(self):
         """When edit_message_text exceeds Telegram's 4096 UTF-16 limit, the
         adapter must split the content across the existing message + new

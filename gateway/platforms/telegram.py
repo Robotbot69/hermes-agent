@@ -109,6 +109,18 @@ _TELEGRAM_IMAGE_EXT_TO_MIME = {
 MAX_COMMANDS_PER_SCOPE = 30
 
 
+_MISSING_EDIT_TARGET_MARKERS = (
+    "message to edit not found",
+    "message can't be edited",
+    "message_id_invalid",
+)
+
+
+def _is_missing_edit_target_error(err: Any) -> bool:
+    err_str = str(err).lower()
+    return any(marker in err_str for marker in _MISSING_EDIT_TARGET_MARKERS)
+
+
 def check_telegram_requirements() -> bool:
     """Check if Telegram dependencies are available.
 
@@ -2583,6 +2595,8 @@ class TelegramAdapter(BasePlatformAdapter):
                 # "Message is not modified" is a no-op, not an error
                 if "not modified" in str(fmt_err).lower():
                     return SendResult(success=True, message_id=message_id)
+                if _is_missing_edit_target_error(fmt_err):
+                    raise
                 # Fallback: strip MarkdownV2 escapes and retry as clean plain text
                 logger.warning(
                     "[%s] MarkdownV2 edit failed, falling back to plain text: %s",
@@ -2601,6 +2615,19 @@ class TelegramAdapter(BasePlatformAdapter):
             # "Message is not modified" — content identical, treat as success
             if "not modified" in err_str:
                 return SendResult(success=True, message_id=message_id)
+            if _is_missing_edit_target_error(e):
+                logger.warning(
+                    "[%s] Telegram edit target unavailable for message %s; "
+                    "falling back to a fresh send where supported: %s",
+                    self.name,
+                    message_id,
+                    e,
+                )
+                return SendResult(
+                    success=False,
+                    error=f"message_edit_target_missing:{e}",
+                    retryable=False,
+                )
             # Reactive split-and-deliver: parse_mode formatting can inflate
             # the payload past the limit even when the raw text was under
             # (e.g. MarkdownV2 escapes).  Same fix as the pre-flight path.

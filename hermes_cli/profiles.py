@@ -615,7 +615,42 @@ def _check_gateway_running(profile_dir: Path) -> bool:
     """Check if a gateway is running for a given profile directory."""
     try:
         from gateway.status import get_running_pid
-        return get_running_pid(profile_dir / "gateway.pid", cleanup_stale=False) is not None
+        if get_running_pid(profile_dir / "gateway.pid", cleanup_stale=False) is not None:
+            return True
+    except Exception:
+        pass
+
+    # Fallback when PID/lock files are missing but a service-managed gateway
+    # still publishes runtime state.
+    try:
+        from gateway.status import _pid_exists
+
+        state_file = profile_dir / "gateway_state.json"
+        if not state_file.exists():
+            return False
+
+        raw = state_file.read_text(encoding="utf-8").strip()
+        if not raw:
+            return False
+
+        payload = json.loads(raw)
+        if not isinstance(payload, dict):
+            return False
+
+        try:
+            pid = int(payload.get("pid"))
+        except (TypeError, ValueError):
+            return False
+
+        if not _pid_exists(pid):
+            return False
+
+        gateway_state = str(payload.get("gateway_state", "")).strip().lower()
+        if gateway_state in {"running", "starting", "restarting"}:
+            return True
+        if gateway_state in {"stopped", "stopping", "error", "crashed", "failed"}:
+            return False
+        return True
     except Exception:
         return False
 

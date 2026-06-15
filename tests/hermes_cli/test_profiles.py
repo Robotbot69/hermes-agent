@@ -1445,6 +1445,22 @@ class TestEdgeCases:
             cleanup_stale=False,
         )
 
+    def test_gateway_running_check_state_file_fallback(self, profile_env):
+        """A service-managed gateway may have runtime state even without pid file."""
+        from hermes_cli.profiles import _check_gateway_running
+        tmp_path = profile_env
+        default_home = tmp_path / ".hermes"
+        (default_home / "gateway_state.json").write_text(json.dumps({
+            "pid": 4242,
+            "gateway_state": "running",
+        }))
+
+        with (
+            patch("gateway.status.get_running_pid", return_value=None),
+            patch("gateway.status._pid_exists", return_value=True),
+        ):
+            assert _check_gateway_running(default_home) is True
+
     def test_profile_name_boundary_single_char(self):
         """Single alphanumeric character is valid."""
         validate_profile_name("a")
