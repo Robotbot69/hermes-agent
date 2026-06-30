@@ -21,6 +21,13 @@ import time
 from unittest.mock import patch
 
 
+class _GatewaySnapshot:
+    def __init__(self, *, running: bool, pids=(), manager: str = "test"):
+        self.running = running
+        self.gateway_pids = tuple(pids)
+        self.manager = manager
+
+
 def _wait_until(predicate, timeout=10.0, interval=0.005):
     """Block until ``predicate()`` is truthy or ``timeout`` elapses.
 
@@ -533,7 +540,10 @@ def test_cron_status_reports_alive_but_failing(tmp_path, monkeypatch, capsys):
     import cron.jobs as jobs
     from hermes_cli import cron as cron_cli
 
-    monkeypatch.setattr("hermes_cli.gateway.find_gateway_pids", lambda: [4321])
+    monkeypatch.setattr(
+        "hermes_cli.gateway.get_gateway_runtime_snapshot",
+        lambda: _GatewaySnapshot(running=True, pids=(4321,)),
+    )
     monkeypatch.setattr(jobs, "get_ticker_heartbeat_age", lambda: 5.0)      # fresh
     monkeypatch.setattr(jobs, "get_ticker_success_age", lambda: 9_999.0)    # stale
     monkeypatch.setattr("cron.jobs.list_jobs", lambda **k: [])
@@ -548,7 +558,10 @@ def test_cron_status_healthy_when_both_fresh(tmp_path, monkeypatch, capsys):
     import cron.jobs as jobs
     from hermes_cli import cron as cron_cli
 
-    monkeypatch.setattr("hermes_cli.gateway.find_gateway_pids", lambda: [4321])
+    monkeypatch.setattr(
+        "hermes_cli.gateway.get_gateway_runtime_snapshot",
+        lambda: _GatewaySnapshot(running=True, pids=(4321,)),
+    )
     monkeypatch.setattr(jobs, "get_ticker_heartbeat_age", lambda: 5.0)
     monkeypatch.setattr(jobs, "get_ticker_success_age", lambda: 5.0)
     monkeypatch.setattr("cron.jobs.list_jobs", lambda **k: [])
@@ -562,7 +575,10 @@ def test_cron_status_reports_stalled_when_no_heartbeat(tmp_path, monkeypatch, ca
     import cron.jobs as jobs
     from hermes_cli import cron as cron_cli
 
-    monkeypatch.setattr("hermes_cli.gateway.find_gateway_pids", lambda: [4321])
+    monkeypatch.setattr(
+        "hermes_cli.gateway.get_gateway_runtime_snapshot",
+        lambda: _GatewaySnapshot(running=True, pids=(4321,)),
+    )
     monkeypatch.setattr(jobs, "get_ticker_heartbeat_age", lambda: 9_999.0)  # dead
     monkeypatch.setattr(jobs, "get_ticker_success_age", lambda: 9_999.0)
     monkeypatch.setattr("cron.jobs.list_jobs", lambda **k: [])

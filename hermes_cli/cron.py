@@ -72,6 +72,38 @@ def _active_cron_provider_name() -> str:
         return "builtin"
 
 
+def _builtin_ticker_fresh() -> tuple[bool, int | None, int | None]:
+    """Return whether the built-in cron ticker recently reported liveness.
+
+    In restricted shells, `systemctl` may be inaccessible even while the
+    systemd-managed gateway is alive. A fresh in-process ticker heartbeat is a
+    direct cron-specific liveness signal, so use it as a fallback for cron CLI
+    status/warnings.
+    """
+    try:
+        from cron.jobs import (
+            TICKER_INTERVAL_SECONDS,
+            get_ticker_heartbeat_age,
+            get_ticker_success_age,
+        )
+
+        stale_after = TICKER_INTERVAL_SECONDS * 3 + 20
+        hb_age = get_ticker_heartbeat_age()
+        ok_age = get_ticker_success_age()
+        fresh = (
+            hb_age is not None
+            and hb_age <= stale_after
+            and (ok_age is None or ok_age <= stale_after)
+        )
+        return (
+            bool(fresh),
+            int(hb_age) if hb_age is not None else None,
+            int(ok_age) if ok_age is not None else None,
+        )
+    except Exception:
+        return False, None, None
+
+
 def _warn_if_gateway_not_running() -> None:
     """Warn that scheduled jobs won't fire unless the gateway is running.
 
@@ -91,9 +123,9 @@ def _warn_if_gateway_not_running() -> None:
         if _active_cron_provider_name() != "builtin":
             return
 
-        from hermes_cli.gateway import find_gateway_pids
+        from hermes_cli.gateway import get_gateway_runtime_snapshot
 
-        if find_gateway_pids():
+        if get_gateway_runtime_snapshot().running or _builtin_ticker_fresh()[0]:
             return
     except Exception:
         # If we can't determine gateway state, stay quiet rather than nag.
@@ -197,7 +229,7 @@ def cron_tick():
 def cron_status():
     """Show cron execution status."""
     from cron.jobs import list_jobs
-    from hermes_cli.gateway import find_gateway_pids
+    from hermes_cli.gateway import _format_gateway_pids, get_gateway_runtime_snapshot
 
     print()
 
@@ -225,8 +257,10 @@ def cron_status():
         print()
         return
 
-    pids = find_gateway_pids()
-    if pids:
+    snapshot = get_gateway_runtime_snapshot()
+    ticker_fresh, _, _ = _builtin_ticker_fresh()
+    if snapshot.running or ticker_fresh:
+        pids = list(snapshot.gateway_pids)
         # The gateway PROCESS is alive — but the cron ticker THREAD inside it
         # can die silently, or stay alive while every tick fails. Check both
         # the liveness heartbeat and the last-successful-tick marker so we
@@ -252,7 +286,9 @@ def cron_status():
                 f"no heartbeat for {int(hb_age)}s (expected every ~60s).",
                 Colors.YELLOW,
             ))
-            print(f"  PID: {', '.join(map(str, pids))}")
+            if pids:
+                print(f"  PID: {_format_gateway_pids(pids, limit=None)}")
+            print(f"  Manager: {snapshot.manager}")
             print("  Cron jobs may NOT be firing. Restart: hermes gateway restart")
         elif hb_age is not None and ok_age is not None and ok_age > STALE_AFTER:
             # Loop is alive (fresh heartbeat) but no tick has SUCCEEDED in a
@@ -262,11 +298,17 @@ def cron_status():
                 f"succeeded in {int(ok_age)}s — ticks may be failing.",
                 Colors.YELLOW,
             ))
-            print(f"  PID: {', '.join(map(str, pids))}")
+            if pids:
+                print(f"  PID: {_format_gateway_pids(pids, limit=None)}")
+            print(f"  Manager: {snapshot.manager}")
             print("  Check the gateway log for 'Cron tick error'.")
         else:
             print(color("✓ Gateway is running — cron jobs will fire automatically", Colors.GREEN))
-            print(f"  PID: {', '.join(map(str, pids))}")
+            if pids:
+                print(f"  PID: {_format_gateway_pids(pids, limit=None)}")
+            print(f"  Manager: {snapshot.manager}")
+            if not snapshot.running and ticker_fresh:
+                print("  Detected by: fresh cron ticker heartbeat")
             if hb_age is not None:
                 print(f"  Ticker heartbeat: {int(hb_age)}s ago")
     else:
