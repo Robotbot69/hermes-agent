@@ -1190,6 +1190,29 @@ class TestTelegramMenuCommands:
         assert names[0] == "lcm"
         assert "help" in names[1:]
 
+    def test_quick_commands_are_available_to_telegram_menu(self, tmp_path, monkeypatch):
+        (tmp_path / "config.yaml").write_text(
+            "quick_commands:\n"
+            "  brief:\n"
+            "    type: exec\n"
+            "    command: echo brief\n"
+            "    description: Full market brief\n"
+            "platforms:\n"
+            "  telegram:\n"
+            "    extra:\n"
+            "      command_menu:\n"
+            "        priority_mode: prepend\n"
+            "        priority:\n"
+            "          - brief\n"
+        )
+        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+
+        menu, _hidden = telegram_menu_commands(max_commands=30)
+        names = [name for name, _desc in menu]
+
+        assert names[0] == "brief"
+        assert ("brief", "Full market brief") in menu
+
     def test_configured_priority_append_keeps_defaults_before_user_priority(self, tmp_path, monkeypatch):
         """append mode preserves built-in defaults ahead of configured names."""
         from unittest.mock import patch

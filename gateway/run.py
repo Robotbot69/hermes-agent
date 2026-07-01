@@ -9002,6 +9002,13 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                     exec_cmd = qcmd.get("command", "")
                     if exec_cmd:
                         try:
+                            try:
+                                quick_timeout = float(qcmd.get("timeout", qcmd.get("timeout_seconds", 30)))
+                            except (TypeError, ValueError):
+                                quick_timeout = 30.0
+                            if quick_timeout <= 0:
+                                quick_timeout = 30.0
+                            quick_timeout = min(quick_timeout, 600.0)
                             # Sanitize env to prevent credential leakage —
                             # quick commands run in the gateway process which
                             # has all API keys in os.environ.
@@ -9013,7 +9020,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                                 stderr=asyncio.subprocess.PIPE,
                                 env=sanitized_env,
                             )
-                            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
+                            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=quick_timeout)
                             output = (stdout or stderr).decode().strip()
                             # Redact any remaining sensitive patterns in output
                             if output:
@@ -9021,7 +9028,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                                 output = redact_sensitive_text(output)
                             return output if output else "Command returned no output."
                         except asyncio.TimeoutError:
-                            return "Quick command timed out (30s)."
+                            return f"Quick command timed out ({quick_timeout:g}s)."
                         except Exception as e:
                             return f"Quick command error: {e}"
                     else:

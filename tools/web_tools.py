@@ -144,7 +144,17 @@ def _get_backend() -> str:
     keys manually without running setup.
     """
     configured = (_load_web_config().get("backend") or "").lower().strip()
-    if configured in {"parallel", "firecrawl", "tavily", "exa", "searxng", "brave-free", "ddgs", "xai"}:
+    if configured in {
+        "parallel",
+        "firecrawl",
+        "tavily",
+        "exa",
+        "searxng",
+        "brave-free",
+        "ddgs",
+        "xai",
+        "perplexity",
+    }:
         return configured
 
     # Fallback for manual / legacy config — pick the highest-priority
@@ -160,6 +170,7 @@ def _get_backend() -> str:
         ("parallel", _has_env("PARALLEL_API_KEY")),
         ("firecrawl", _has_env("FIRECRAWL_API_KEY") or _has_env("FIRECRAWL_API_URL")),
         ("firecrawl", _is_tool_gateway_ready()),
+        ("perplexity", _is_backend_available("perplexity")),
         ("searxng", _has_env("SEARXNG_URL")),
         ("brave-free", _has_env("BRAVE_SEARCH_API_KEY")),
         ("ddgs", _ddgs_package_importable()),
@@ -211,6 +222,7 @@ def _get_capability_backend(capability: str) -> str:
 
 def _is_backend_available(backend: str) -> bool:
     """Return True when the selected backend is currently usable."""
+    backend = (backend or "").lower().strip()
     if backend == "exa":
         return _has_env("EXA_API_KEY")
     if backend == "parallel":
@@ -235,6 +247,14 @@ def _is_backend_available(backend: str) -> bool:
             return has_xai_credentials()
         except Exception:
             return False
+    try:
+        _ensure_web_plugins_loaded()
+        from agent.web_search_registry import get_provider
+
+        provider = get_provider(backend)
+        return bool(provider and provider.is_available())
+    except Exception:
+        return False
     return False
 
 
@@ -284,6 +304,7 @@ def _web_requires_env() -> list[str]:
         "TOOL_GATEWAY_DOMAIN",
         "TOOL_GATEWAY_SCHEME",
         "TOOL_GATEWAY_USER_TOKEN",
+        "PERPLEXITY_API_KEY",
     ]
 
 
@@ -850,13 +871,29 @@ async def web_extract_tool(
 
 # Convenience function to check Firecrawl credentials
 def check_web_api_key() -> bool:
-    """Check whether the configured web backend is available."""
-    configured = _load_web_config().get("backend", "").lower().strip()
-    if configured in {"exa", "parallel", "firecrawl", "tavily", "searxng", "brave-free", "ddgs", "xai"}:
-        return _is_backend_available(configured)
+    """Check whether at least one configured web capability is available."""
+    web_cfg = _load_web_config()
+    configured_backends = (
+        (web_cfg.get("search_backend") or "").lower().strip(),
+        (web_cfg.get("extract_backend") or "").lower().strip(),
+        (web_cfg.get("backend") or "").lower().strip(),
+    )
+    explicit_backends = [configured for configured in configured_backends if configured]
+    if explicit_backends:
+        return any(_is_backend_available(configured) for configured in explicit_backends)
     return any(
         _is_backend_available(backend)
-        for backend in ("exa", "parallel", "firecrawl", "tavily", "searxng", "brave-free", "ddgs", "xai")
+        for backend in (
+            "exa",
+            "parallel",
+            "firecrawl",
+            "tavily",
+            "perplexity",
+            "searxng",
+            "brave-free",
+            "ddgs",
+            "xai",
+        )
     )
 
 

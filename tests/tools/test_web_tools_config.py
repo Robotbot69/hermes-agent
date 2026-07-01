@@ -218,6 +218,7 @@ class TestBackendSelection:
         "TOOL_GATEWAY_SCHEME",
         "TOOL_GATEWAY_USER_TOKEN",
         "TAVILY_API_KEY",
+        "PERPLEXITY_API_KEY",
     )
 
     def setup_method(self):
@@ -263,6 +264,12 @@ class TestBackendSelection:
         from tools.web_tools import _get_backend
         with patch("tools.web_tools._load_web_config", return_value={"backend": "tavily"}):
             assert _get_backend() == "tavily"
+
+    def test_config_perplexity(self):
+        """web.backend=perplexity in config → 'perplexity'."""
+        from tools.web_tools import _get_backend
+        with patch("tools.web_tools._load_web_config", return_value={"backend": "perplexity"}):
+            assert _get_backend() == "perplexity"
 
     def test_config_tavily_overrides_env_keys(self):
         """web.backend=tavily in config → 'tavily' even if Firecrawl key set."""
@@ -540,6 +547,7 @@ class TestCheckWebApiKey:
         "TOOL_GATEWAY_SCHEME",
         "TOOL_GATEWAY_USER_TOKEN",
         "TAVILY_API_KEY",
+        "PERPLEXITY_API_KEY",
     )
 
     def setup_method(self):
@@ -580,6 +588,12 @@ class TestCheckWebApiKey:
 
     def test_tavily_key_only(self):
         with patch.dict(os.environ, {"TAVILY_API_KEY": "tvly-test"}):
+            from tools.web_tools import check_web_api_key
+            assert check_web_api_key() is True
+
+    def test_configured_perplexity_search_backend_satisfies_check(self):
+        with patch("tools.web_tools._load_web_config", return_value={"search_backend": "perplexity"}), \
+             patch("tools.web_tools._is_backend_available", side_effect=lambda backend: backend == "perplexity"):
             from tools.web_tools import check_web_api_key
             assert check_web_api_key() is True
 

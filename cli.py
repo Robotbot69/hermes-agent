@@ -8582,11 +8582,18 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin):
                     exec_cmd = qcmd.get("command", "")
                     if exec_cmd:
                         try:
+                            try:
+                                quick_timeout = float(qcmd.get("timeout", qcmd.get("timeout_seconds", 30)))
+                            except (TypeError, ValueError):
+                                quick_timeout = 30.0
+                            if quick_timeout <= 0:
+                                quick_timeout = 30.0
+                            quick_timeout = min(quick_timeout, 600.0)
                             # shell=True is intentional: quick_commands are user-defined
                             # shell snippets from config.yaml — not agent/LLM controlled.
                             result = subprocess.run(
                                 exec_cmd, shell=True, capture_output=True,
-                                text=True, timeout=30
+                                text=True, timeout=quick_timeout
                             )
                             output = result.stdout.strip() or result.stderr.strip()
                             if output:
@@ -8594,7 +8601,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin):
                             else:
                                 self._console_print("[dim]Command returned no output[/]")
                         except subprocess.TimeoutExpired:
-                            self._console_print("[bold red]Quick command timed out (30s)[/]")
+                            self._console_print(f"[bold red]Quick command timed out ({quick_timeout:g}s)[/]")
                         except Exception as e:
                             self._console_print(f"[bold red]Quick command error: {e}[/]")
                     else:

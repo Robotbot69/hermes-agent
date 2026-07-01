@@ -128,6 +128,14 @@ class TestCLIQuickCommands:
         args = cli.console.print.call_args[0][0]
         assert "timed out" in args.lower()
 
+    def test_exec_command_uses_configured_timeout(self):
+        cli = self._make_cli({"slow": {"type": "exec", "command": "sleep 100", "timeout": 75}})
+        with patch("subprocess.run") as run:
+            run.return_value.stdout = "ok\n"
+            run.return_value.stderr = ""
+            cli.process_command("/slow")
+        assert run.call_args.kwargs["timeout"] == 75.0
+
 
 # ── Gateway tests ──────────────────────────────────────────────────────────
 
@@ -224,10 +232,44 @@ class TestGatewayQuickCommands:
         runner._is_user_authorized = MagicMock(return_value=True)
 
         event = self._make_event("slow")
-        with patch("asyncio.wait_for", side_effect=asyncio.TimeoutError):
+        with patch("asyncio.create_subprocess_shell") as create_proc, patch("asyncio.wait_for") as wait_for:
+            class _Proc:
+                async def communicate(self):
+                    return b"", b""
+
+            create_proc.return_value = _Proc()
+            def _timeout(coro, timeout):
+                coro.close()
+                raise asyncio.TimeoutError
+
+            wait_for.side_effect = _timeout
             result = await runner._handle_message(event)
         assert result is not None
         assert "timed out" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_exec_command_uses_configured_timeout(self):
+        from gateway.run import GatewayRunner
+        runner = GatewayRunner.__new__(GatewayRunner)
+        runner.config = {"quick_commands": {"slow": {"type": "exec", "command": "printf ok", "timeout": 75}}}
+        runner._running_agents = {}
+        runner._pending_messages = {}
+        runner._is_user_authorized = MagicMock(return_value=True)
+
+        event = self._make_event("slow")
+        with patch("asyncio.create_subprocess_shell") as create_proc, patch("asyncio.wait_for") as wait_for:
+            class _Proc:
+                async def communicate(self):
+                    return b"ok", b""
+
+            create_proc.return_value = _Proc()
+            async def _wait_for(coro, timeout):
+                return await coro
+            wait_for.side_effect = _wait_for
+            result = await runner._handle_message(event)
+
+        assert result == "ok"
+        assert wait_for.call_args.kwargs["timeout"] == 75.0
 
     @pytest.mark.asyncio
     async def test_gateway_config_object_supports_quick_commands(self):

@@ -529,12 +529,39 @@ def telegram_bot_commands() -> list[tuple[str, str]]:
         tg_name = _sanitize_telegram_name(cmd.name)
         if tg_name:
             result.append((tg_name, cmd.description))
+    reserved_names = {name for name, _desc in result}
+    try:
+        from hermes_cli.config import read_raw_config
+        raw_cfg = read_raw_config() or {}
+    except Exception:
+        raw_cfg = {}
+    if isinstance(raw_cfg, Mapping):
+        quick_commands = raw_cfg.get("quick_commands") or {}
+    else:
+        quick_commands = {}
+    if isinstance(quick_commands, Mapping):
+        for name, meta in quick_commands.items():
+            if not isinstance(meta, Mapping):
+                continue
+            if meta.get("type") not in {"exec", "alias"}:
+                continue
+            if meta.get("hidden_from_menu"):
+                continue
+            tg_name = _sanitize_telegram_name(str(name))
+            if not tg_name or tg_name in reserved_names:
+                continue
+            description = str(meta.get("description") or f"Run /{tg_name}").strip()
+            if not description:
+                description = f"Run /{tg_name}"
+            result.append((tg_name, description[:256]))
+            reserved_names.add(tg_name)
     for name, description, args_hint in _iter_plugin_command_entries():
         if _requires_argument(args_hint):
             continue
         tg_name = _sanitize_telegram_name(name)
-        if tg_name:
+        if tg_name and tg_name not in reserved_names:
             result.append((tg_name, description))
+            reserved_names.add(tg_name)
     return result
 
 

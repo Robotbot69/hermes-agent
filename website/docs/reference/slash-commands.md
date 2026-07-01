@@ -154,6 +154,8 @@ quick_commands:
 
 Then type `/status`, `/deploy`, or `/inbox` in the CLI or a messaging platform. Quick commands are resolved at dispatch time and may not appear in every built-in autocomplete/help table.
 
+`exec` quick commands default to a 30-second timeout. Set `timeout: 120` when a trusted local command needs more time; values are capped at 600 seconds.
+
 String-only prompt shortcuts are not supported as quick commands. Put longer reusable prompts in a skill, or use `type: alias` to point at an existing slash command.
 
 ### Custom model aliases
