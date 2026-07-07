@@ -62,3 +62,40 @@ def test_vision_base_url_override_keeps_explicit_provider():
     assert model == "glm-4v"
     assert mock_resolve.call_args.args[0] == "zai"
     assert mock_resolve.call_args.kwargs["explicit_base_url"] == "https://open.bigmodel.cn/api/paas/v4"
+
+
+def test_explicit_gemini_vision_uses_native_client(monkeypatch):
+    """auxiliary.vision.provider=gemini must use Gemini native, never Codex."""
+    import agent.auxiliary_client as aux
+    from agent.gemini_native_adapter import GeminiNativeClient
+
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    monkeypatch.setattr(aux, "_select_pool_entry", lambda provider: (False, None))
+    monkeypatch.setattr(aux, "_peek_pool_entry", lambda provider: None)
+
+    provider, client, model = aux.resolve_vision_provider_client(
+        provider="gemini",
+        model="gemini-2.5-flash",
+    )
+
+    assert provider == "gemini"
+    assert isinstance(client, GeminiNativeClient)
+    assert model == "gemini-2.5-flash"
+
+
+def test_auto_vision_prefers_gemini_before_codex_main(monkeypatch):
+    """Auto vision should pick Gemini first and not send Gemini slugs to Codex."""
+    import agent.auxiliary_client as aux
+    from agent.gemini_native_adapter import GeminiNativeClient
+
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    monkeypatch.setattr(aux, "_select_pool_entry", lambda provider: (False, None))
+    monkeypatch.setattr(aux, "_peek_pool_entry", lambda provider: None)
+    monkeypatch.setattr(aux, "_read_main_provider", lambda: "openai-codex")
+    monkeypatch.setattr(aux, "_read_main_model", lambda: "gpt-5.5")
+
+    provider, client, model = aux.resolve_vision_provider_client(provider="auto")
+
+    assert provider == "gemini"
+    assert isinstance(client, GeminiNativeClient)
+    assert model.startswith("gemini-")

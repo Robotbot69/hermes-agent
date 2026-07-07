@@ -4572,6 +4572,7 @@ def get_async_text_auxiliary_client(task: str = "", *, main_runtime: Optional[Di
 
 
 _VISION_AUTO_PROVIDER_ORDER = (
+    "gemini",
     "openrouter",
     "nous",
 )
@@ -4621,6 +4622,8 @@ def _resolve_strict_vision_backend(
         return resolve_provider_client("copilot", model, is_vision=True)
     if provider == "openrouter":
         return _try_openrouter(model=model)
+    if provider == "gemini":
+        return resolve_provider_client("gemini", model, is_vision=True)
     if provider == "nous":
         return _try_nous(vision=True)
     if provider == "openai-codex":
@@ -4687,7 +4690,11 @@ def resolve_vision_provider_client(
     def _finalize(resolved_provider: str, sync_client: Any, default_model: Optional[str]):
         if sync_client is None:
             return resolved_provider, None, None
-        final_model = resolved_model or default_model
+        # In auto mode, do not apply a model from auxiliary.vision config (or
+        # from a failed explicit backend) to whichever fallback provider wins.
+        # A Gemini slug on Codex/OpenRouter/Nous can be invalid for that
+        # transport. Let the selected backend provide its own vision default.
+        final_model = default_model if requested == "auto" else (resolved_model or default_model)
         if async_mode:
             async_client, async_model = _to_async_client(sync_client, final_model, is_vision=True)
             return resolved_provider, async_client, async_model
@@ -4711,18 +4718,23 @@ def resolve_vision_provider_client(
 
     if requested == "auto":
         # Vision auto-detection order:
-        #   1. User's main provider + main model (including aggregators).
-        #      _PROVIDER_VISION_MODELS provides per-provider vision model
-        #      overrides when the provider has a dedicated multimodal model
-        #      that differs from the chat model (e.g. xiaomi → mimo-v2-omni,
-        #      zai → glm-5v-turbo). Nous is the exception: it has a dedicated
-        #      strict vision backend with tier-aware defaults, so it must not
-        #      fall through to the user's text chat model here.
-        #   2. OpenRouter  (vision-capable aggregator fallback)
-        #   3. Nous Portal (vision-capable aggregator fallback)
-        #   4. Stop
+        #   1. Dedicated vision backends in _VISION_AUTO_PROVIDER_ORDER.
+        #      Gemini is first so image understanding/identification uses
+        #      native Gemini whenever its credential is usable; OpenRouter/Nous
+        #      are fallback vision aggregators.
+        #   2. User's main provider + main model only after dedicated vision
+        #      backends fail, and never with a model slug inherited from a
+        #      failed dedicated backend. This prevents Codex transport from
+        #      receiving Gemini model IDs such as gemini-2.5-flash.
+        #   3. Stop.
         main_provider = _read_main_provider()
         main_model = _read_main_model()
+
+        for candidate in _VISION_AUTO_PROVIDER_ORDER:
+            sync_client, default_model = _resolve_strict_vision_backend(candidate)
+            if sync_client is not None:
+                return _finalize(candidate, sync_client, default_model)
+
         if main_provider and main_provider not in {"auto", ""}:
             vision_model = _PROVIDER_VISION_MODELS.get(main_provider, main_model)
             if main_provider == "nous":
@@ -4777,15 +4789,6 @@ def resolve_vision_provider_client(
                     )
                     return _finalize(
                         main_provider, rpc_client, rpc_model or vision_model)
-
-        # Fall back through aggregators (uses their dedicated vision model,
-        # not the user's main model) when main provider has no client.
-        for candidate in _VISION_AUTO_PROVIDER_ORDER:
-            if candidate == main_provider:
-                continue  # already tried above
-            sync_client, default_model = _resolve_strict_vision_backend(candidate)
-            if sync_client is not None:
-                return _finalize(candidate, sync_client, default_model)
 
         logger.debug("Auxiliary vision client: none available")
         return None, None, None
@@ -5723,9 +5726,15 @@ def call_llm(
                 "Vision provider %s unavailable, falling back to auto vision backends",
                 resolved_provider,
             )
+            # Do not carry the failed explicit provider's model into auto
+            # fallback.  If auxiliary.vision is configured as
+            # provider=gemini/model=gemini-2.5-flash but the Gemini credential
+            # is unavailable, auto may select the main Codex backend; sending
+            # the Gemini model slug to Codex produces a deterministic 400.
+            # Let the selected fallback backend choose its own vision model.
             effective_provider, client, final_model = resolve_vision_provider_client(
                 provider="auto",
-                model=resolved_model,
+                model=None,
                 async_mode=False,
             )
         if client is None:
@@ -6286,9 +6295,15 @@ async def async_call_llm(
                 "Vision provider %s unavailable, falling back to auto vision backends",
                 resolved_provider,
             )
+            # Do not carry the failed explicit provider's model into auto
+            # fallback.  If auxiliary.vision is configured as
+            # provider=gemini/model=gemini-2.5-flash but the Gemini credential
+            # is unavailable, auto may select the main Codex backend; sending
+            # the Gemini model slug to Codex produces a deterministic 400.
+            # Let the selected fallback backend choose its own vision model.
             effective_provider, client, final_model = resolve_vision_provider_client(
                 provider="auto",
-                model=resolved_model,
+                model=None,
                 async_mode=True,
             )
         if client is None:
