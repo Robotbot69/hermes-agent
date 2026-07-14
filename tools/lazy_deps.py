@@ -164,7 +164,10 @@ LAZY_DEPS: dict[str, tuple[str, ...]] = {
     # uploaded to the Discord gateway fails to decode at att.read() with
     # "Can not decode content-encoding: br" — see #12511 / #15744.
     "platform.discord": (
-        "discord.py[voice]==2.7.1",
+        # Text messaging only for now. discord.py 2.7.1 caps PyNaCl<1.6,
+        # while the first version fixing GHSA-mrfv-m5wm-5w6w is 1.6.2.
+        # Do not restore the voice extra until discord.py accepts that floor.
+        "discord.py==2.7.1",
         "brotlicffi==1.2.0.1",
         # discord.py pulls aiohttp transitively (>=3.7.4,<4) as its HTTP
         # backbone. Pin the patched floor here too so the lazy Discord path

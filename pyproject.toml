@@ -156,16 +156,20 @@ exa = ["exa-py==2.10.2"]
 firecrawl = ["firecrawl-py==4.17.0"]
 parallel-web = ["parallel-web==0.4.2"]
 # Image generation backends
-fal = ["fal-client==0.13.1"]
+fal = ["fal-client==0.13.1", "msgpack==1.2.1"]  # msgpack: GHSA-6v7p-g79w-8964
 # Edge TTS — default TTS provider but still optional (users can pick
 # ElevenLabs / OpenAI / MiniMax instead).
 edge-tts = ["edge-tts==7.2.7"]
-modal = ["modal==1.3.4"]
+modal = ["modal==1.3.4", "cbor2==5.9.0"]  # cbor2: GHSA-3c37-wwvx-h642
 daytona = ["daytona==0.155.0"]
 hindsight = ["hindsight-client==0.6.1"]
 dev = ["debugpy==1.8.20", "pytest==9.0.3", "pytest-asyncio==1.3.0", "mcp==1.26.0", "starlette==1.3.1", "ty==0.0.21", "ruff==0.15.10", "setuptools==83.0.0"]  # security-fixed test/build toolchain
 telegram = ["python-telegram-bot[webhooks]==22.6", "tornado==6.5.7"]  # Tornado: PYSEC-2026-3387/3388/3389 and GHSA-pw6j-qg29-8w7f
-messaging = ["python-telegram-bot[webhooks]==22.6", "discord.py[voice]==2.7.1", "tornado==6.5.7", "aiohttp==3.14.1", "brotlicffi==1.2.0.1", "slack-bolt==1.27.0", "slack-sdk==3.40.1", "qrcode==7.4.2"]  # aiohttp 3.14.1: CVE-2026-34513/34518/34519/34520/34525 + 34993(RCE)/47265; Tornado: PYSEC-2026-3387/3388/3389 and GHSA-pw6j-qg29-8w7f
+# Do not enable discord.py's `voice` extra here: discord.py 2.7.1 caps
+# PyNaCl<1.6, while the first release fixing GHSA-mrfv-m5wm-5w6w is 1.6.2.
+# Text messaging stays available; voice must remain disabled until discord.py
+# publishes a compatible constraint.
+messaging = ["python-telegram-bot[webhooks]==22.6", "discord.py==2.7.1", "tornado==6.5.7", "aiohttp==3.14.1", "brotlicffi==1.2.0.1", "slack-bolt==1.27.0", "slack-sdk==3.40.1", "qrcode==7.4.2"]  # aiohttp 3.14.1: CVE-2026-34513/34518/34519/34520/34525 + 34993(RCE)/47265; Tornado: PYSEC-2026-3387/3388/3389 and GHSA-pw6j-qg29-8w7f
 cron = []  # croniter is now a core dependency; this extra kept for back-compat
 slack = ["slack-bolt==1.27.0", "slack-sdk==3.40.1", "aiohttp==3.14.1"]
 matrix = ["mautrix[encryption]==0.21.0", "aiosqlite==0.22.1", "asyncpg==0.31.0", "aiohttp-socks==0.11.0", "aiohttp==3.14.1"]  # aiohttp 3.14.1: CVE-2026-34993(RCE)/47265 + 34513/34518/34519/34520/34525 (mautrix/aiohttp-socks only cap aiohttp<4 / >=3.10, so pin the patched floor directly)
@@ -266,6 +270,7 @@ google = [
   "google-api-python-client==2.194.0",
   "google-auth-oauthlib==1.3.1",
   "google-auth-httplib2==0.3.1",
+  "httplib2==0.32.0",  # PYSEC-2026-3444
 ]
 youtube = [
   # Required by skills/media/youtube-content and

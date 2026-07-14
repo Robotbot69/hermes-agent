@@ -42,7 +42,7 @@ A paid [Nous Portal](/user-guide/features/tool-gateway) subscription supplies th
 # CLI voice mode (microphone + audio playback)
 cd ~/.hermes/hermes-agent && uv pip install -e ".[voice]"
 
-# Discord + Telegram messaging (includes discord.py[voice] for VC support)
+# Discord + Telegram text messaging
 cd ~/.hermes/hermes-agent && uv pip install -e ".[messaging]"
 
 # Premium TTS (ElevenLabs)
@@ -58,13 +58,15 @@ cd ~/.hermes/hermes-agent && uv pip install -e ".[all]"
 | Extra | Packages | Required For |
 |-------|----------|-------------|
 | `voice` | `sounddevice`, `numpy` | CLI voice mode |
-| `messaging` | `discord.py[voice]`, `python-telegram-bot`, `aiohttp` | Discord & Telegram bots |
+| `messaging` | `discord.py`, `python-telegram-bot`, `aiohttp` | Discord & Telegram text bots |
 | `tts-premium` | `elevenlabs` | ElevenLabs TTS provider |
 
 Optional local TTS provider: install `neutts` separately with `python -m pip install -U neutts[all]`. On first use it downloads the model automatically.
 
-:::info
-`discord.py[voice]` installs **PyNaCl** (for voice encryption) and **opus bindings** automatically. This is required for Discord voice channel support.
+:::warning
+Discord voice-channel support is temporarily disabled. `discord.py` 2.7.1 requires
+PyNaCl below 1.6, but the first release fixing GHSA-mrfv-m5wm-5w6w is 1.6.2.
+Text messaging remains available through the `messaging` extra.
 :::
 
 ### System Dependencies
