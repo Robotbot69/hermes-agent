@@ -163,7 +163,7 @@ edge-tts = ["edge-tts==7.2.7"]
 modal = ["modal==1.3.4", "cbor2==5.9.0"]  # cbor2: GHSA-3c37-wwvx-h642
 daytona = ["daytona==0.155.0"]
 hindsight = ["hindsight-client==0.6.1"]
-dev = ["debugpy==1.8.20", "pytest==9.0.3", "pytest-asyncio==1.3.0", "mcp==1.26.0", "starlette==1.3.1", "ty==0.0.21", "ruff==0.15.10", "setuptools==83.0.0"]  # security-fixed test/build toolchain
+dev = ["debugpy==1.8.20", "pytest==9.0.3", "pytest-asyncio==1.3.0", "mcp==1.28.1", "starlette==1.3.1", "ty==0.0.21", "ruff==0.15.10", "setuptools==83.0.0"]  # security-fixed test/build toolchain
 telegram = ["python-telegram-bot[webhooks]==22.6", "tornado==6.5.7"]  # Tornado: PYSEC-2026-3387/3388/3389 and GHSA-pw6j-qg29-8w7f
 # Do not enable discord.py's `voice` extra here: discord.py 2.7.1 caps
 # PyNaCl<1.6, while the first release fixing GHSA-mrfv-m5wm-5w6w is 1.6.2.
@@ -216,7 +216,7 @@ vision = []
 # extra that exposes a Starlette-backed server surface so pip/uv can't resolve
 # a vulnerable transitive. Version 1.3.1 also fixes the newer form-parsing,
 # URL-authority, and method-dispatch advisories. Bump in lockstep with uv.lock.
-mcp = ["mcp==1.26.0", "starlette==1.3.1"]  # starlette: GHSA-82w8-qh3p-5jfq
+mcp = ["mcp==1.28.1", "starlette==1.3.1"]  # starlette: GHSA-82w8-qh3p-5jfq
 nemo-relay = ["nemo-relay>=0.5,<1.0"]
 homeassistant = ["aiohttp==3.14.1"]
 sms = ["aiohttp==3.14.1"]
@@ -225,7 +225,7 @@ teams = ["microsoft-teams-apps==2.0.13.4", "aiohttp==3.14.1"]  # aiohttp 3.14.1:
 # The cua-driver binary itself is installed via `hermes tools` post-setup
 # (curl install script); this extra just pins the MCP client used to talk
 # to it, which is already provided by the `mcp` extra.
-computer-use = ["mcp==1.26.0", "starlette==1.3.1"]  # starlette: GHSA-82w8-qh3p-5jfq
+computer-use = ["mcp==1.28.1", "starlette==1.3.1"]  # starlette: GHSA-82w8-qh3p-5jfq
 acp = ["agent-client-protocol==0.9.0"]
 # mistral: Voxtral STT + TTS. Pinned to an exact verified-clean version.
 # The `mistralai` PyPI project was quarantined 2026-05-12 after the malicious
