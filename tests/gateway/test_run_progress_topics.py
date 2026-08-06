@@ -830,6 +830,40 @@ class QueuedFailedEmptyAgent:
         }
 
 
+class QueuedMediaAgent:
+    """First turn attaches a document while a follow-up is already queued."""
+
+    calls = 0
+    media_path = ""
+
+    def __init__(self, **kwargs):
+        self.tools = []
+
+    def run_conversation(self, message, conversation_history=None, task_id=None):
+        type(self).calls += 1
+        if type(self).calls == 1:
+            return {
+                "final_response": f"Готово.\n[[as_document]] MEDIA:{type(self).media_path}",
+                "messages": [],
+                "api_calls": 1,
+            }
+        return {
+            "final_response": "follow-up processed",
+            "messages": [],
+            "api_calls": 1,
+        }
+
+
+class DocumentCaptureAdapter(ProgressCaptureAdapter):
+    def __init__(self, platform=Platform.TELEGRAM):
+        super().__init__(platform=platform)
+        self.documents = []
+
+    async def send_document(self, chat_id, file_path, caption="", reply_to=None, metadata=None):
+        self.documents.append({"chat_id": chat_id, "file_path": file_path})
+        return SendResult(success=True, message_id="document-1")
+
+
 class BackgroundReviewAgent:
     def __init__(self, **kwargs):
         self.background_review_callback = kwargs.get("background_review_callback")
@@ -926,6 +960,30 @@ async def _run_with_agent(
         session_key=session_key,
     )
     return adapter, result
+
+
+@pytest.mark.asyncio
+async def test_queued_followup_delivers_media_instead_of_raw_directive(monkeypatch, tmp_path):
+    media_file = tmp_path / "lecture.pptx"
+    media_file.write_bytes(b"pptx")
+    monkeypatch.setattr(base_platform, "MEDIA_DELIVERY_SAFE_ROOTS", (tmp_path,))
+    QueuedMediaAgent.calls = 0
+    QueuedMediaAgent.media_path = str(media_file)
+
+    adapter, result = await _run_with_agent(
+        monkeypatch,
+        tmp_path,
+        QueuedMediaAgent,
+        session_id="sess-queued-media",
+        pending_text="проверь ещё раз",
+        adapter_cls=DocumentCaptureAdapter,
+    )
+
+    assert result["final_response"] == "follow-up processed"
+    assert adapter.documents == [{"chat_id": "-1001", "file_path": str(media_file)}]
+    assert "Готово." in [call["content"] for call in adapter.sent]
+    assert all("MEDIA:" not in call["content"] for call in adapter.sent)
+    assert all("[[as_document]]" not in call["content"] for call in adapter.sent)
 
 
 @pytest.mark.asyncio

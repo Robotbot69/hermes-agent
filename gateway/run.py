@@ -25379,13 +25379,24 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                                 "Queued follow-up for session %s: final stream delivery not confirmed; sending first response before continuing.",
                                 session_key or "?",
                             )
-                            await adapter.send(
-                                source.chat_id,
-                                first_response,
-                                metadata=_status_thread_metadata,
-                            )
+                            _, first_response_text = adapter.extract_media(first_response)
+                            if first_response_text:
+                                await adapter.send(
+                                    source.chat_id,
+                                    first_response_text,
+                                    metadata=_status_thread_metadata,
+                                )
                         except Exception as e:
                             logger.warning("Failed to send first response before queued message: %s", e)
+                        first_response_event = MessageEvent(
+                            text="",
+                            message_type=MessageType.TEXT,
+                            source=source,
+                            message_id=event_message_id,
+                        )
+                        await self._deliver_media_from_response(
+                            first_response, first_response_event, adapter,
+                        )
                     elif first_response:
                         logger.info(
                             "Queued follow-up for session %s: skipping resend because final streamed delivery was confirmed.",

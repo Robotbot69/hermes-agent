@@ -15,7 +15,6 @@ exclude-newer-span = "P14D"
 nemo-relay = false
 vercel = false
 huggingface-hub = false
-
 [manifest]
 overrides = [{ name = "pynacl", specifier = ">=1.6,<1.7" }]
 
