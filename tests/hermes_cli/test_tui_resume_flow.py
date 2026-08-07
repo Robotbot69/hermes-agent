@@ -132,6 +132,33 @@ def test_oneshot_subprocess_exits_without_teardown_abort():
     assert b"Traceback" not in result.stderr
 
 
+def test_oneshot_failed_result_exits_nonzero_with_error_response():
+    program = textwrap.dedent(
+        """
+        import hermes_cli.oneshot as oneshot
+        from hermes_cli.main import _exit_after_oneshot
+
+        message = "API call failed after 1 retries: HTTP 503"
+        oneshot._run_agent = lambda *args, **kwargs: (
+            message,
+            {"final_response": message, "failed": True, "completed": False},
+        )
+        _exit_after_oneshot(oneshot.run_oneshot("hello"))
+        """
+    )
+
+    result = subprocess.run(
+        [sys.executable, "-c", program],
+        cwd=Path(__file__).resolve().parents[2],
+        capture_output=True,
+        timeout=10,
+        check=False,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == b"API call failed after 1 retries: HTTP 503\n"
+
+
 
 
 
@@ -282,7 +309,6 @@ def test_make_tui_argv_dev_prebuilds_hermes_ink(monkeypatch, main_mod, tmp_path)
     assert argv == [str(tsx), "src/entry.tsx"]
     assert cwd == tui_dir
     assert calls == [(["/usr/bin/npm", "run", "build"], str(ink_dir))]
-
 
 
 
