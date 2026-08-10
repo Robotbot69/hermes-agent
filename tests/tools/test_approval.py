@@ -695,6 +695,17 @@ class TestGatewayProtection:
         assert dangerous is True
         assert "stop/restart" in desc
 
+    def test_crontab_mutations_flagged_but_list_is_safe(self):
+        for cmd in (
+            "crontab -e",
+            "crontab -r",
+            "crontab /tmp/new-crontab",
+            "echo '* * * * * /tmp/job' | crontab -",
+        ):
+            assert detect_dangerous_command(cmd)[0] is True, cmd
+        for cmd in ("crontab -l", "crontab -u root --list"):
+            assert detect_dangerous_command(cmd)[0] is False, cmd
+
 
     def test_pkill_unrelated_not_flagged(self):
         """pkill targeting unrelated processes should not be flagged."""
