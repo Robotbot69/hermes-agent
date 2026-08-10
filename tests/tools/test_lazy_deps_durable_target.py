@@ -91,18 +91,16 @@ class TestAbiStamp:
         assert stamp.read_text().strip() == ld._python_abi_tag()
 
 
-    def test_readonly_target_reports_error(self, tmp_path):
-        # A path under a non-writable parent should surface a clean error,
-        # not raise.
-        ro_parent = tmp_path / "ro"
-        ro_parent.mkdir()
-        os.chmod(ro_parent, 0o500)
-        try:
-            err = ld._ensure_target_ready(ro_parent / "lazy")
-            assert err is not None
-            assert "not writable" in err
-        finally:
-            os.chmod(ro_parent, 0o700)  # let pytest clean up
+    def test_readonly_target_reports_error(self, tmp_path, monkeypatch):
+        # chmod does not make a path unwritable to root, so simulate the
+        # filesystem error directly for root and non-root test runners alike.
+        def deny_write(*args, **kwargs):
+            raise PermissionError("read-only test target")
+
+        monkeypatch.setattr(Path, "write_text", deny_write)
+        err = ld._ensure_target_ready(tmp_path / "lazy")
+        assert err is not None
+        assert "not writable" in err
 
 
 # ---------------------------------------------------------------------------
