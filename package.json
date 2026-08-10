@@ -47,14 +47,20 @@
     "globals": "17.7.0"
   },
   "overrides": {
-    "dompurify": "3.4.13",
-    "fast-uri": "3.1.5",
-    "js-yaml": "4.3.1",
-    "mermaid": "11.16.1",
     "lodash": "4.18.1",
     "yauzl": "^3.3.1",
     "protobufjs": "^8.7.1",
-    "brace-expansion": "5.0.9"
+    "brace-expansion": "5.0.9",
+    "mermaid": "11.16.1",
+    "dompurify": "3.4.13",
+    "fast-uri": "3.1.5",
+    "ip-address": "10.3.1",
+    "nanoid@^3": "3.3.17",
+    "nanoid@^6": "6.0.0",
+    "js-yaml@^4": "4.3.1",
+    "undici@^6": "6.28.0",
+    "undici@^7": "7.29.0",
+    "tar": "7.5.22"
   },
   "engines": {
     "node": ">=22.22.0",
@@ -68,6 +74,7 @@
     "agent-browser@0.26.0": true,
     "electron@41.10.3": true,
     "fsevents@2.3.2": true,
-    "fsevents@2.3.3": true
+    "fsevents@2.3.3": true,
+    "get-windows@9.3.0": true
   }
 }
