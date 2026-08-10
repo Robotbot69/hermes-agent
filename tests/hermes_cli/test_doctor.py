@@ -50,6 +50,26 @@ class TestProviderEnvDetection:
         content = "TERMINAL_ENV=local\n"
         assert not _has_provider_env_config(content)
 
+    def test_oauth_login_counts_as_provider_config(self, monkeypatch):
+        monkeypatch.setattr(
+            "hermes_cli.auth.get_codex_auth_status",
+            lambda: {"logged_in": True},
+        )
+        monkeypatch.setattr(
+            "hermes_cli.auth.get_nous_auth_status_local",
+            lambda: {"logged_in": False},
+        )
+        monkeypatch.setattr(
+            "hermes_cli.auth.get_minimax_oauth_auth_status",
+            lambda: {"logged_in": False},
+        )
+        monkeypatch.setattr(
+            "hermes_cli.auth.get_xai_oauth_auth_status",
+            lambda: {"logged_in": False},
+        )
+
+        assert doctor._has_oauth_provider_config()
+
 
 class TestDoctorToolAvailabilitySummary:
     def test_missing_api_key_summary_ignores_disabled_toolsets(self, monkeypatch):
