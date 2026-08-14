@@ -56,6 +56,34 @@ def test_s1_contended_activity_write_gives_up_within_short_budget(tmp_path):
     assert elapsed_touch < 3.0, f"activity touch waited {elapsed_touch:.1f}s"
 
 
+def test_s1_in_process_activity_write_gives_up_within_short_budget(tmp_path):
+    db = SessionDB(db_path=tmp_path / "state.db")
+    sid = "S1_IN_PROCESS_CONTENDED"
+    db.create_session(sid, source="cli")
+
+    held = threading.Event()
+    release = threading.Event()
+
+    def hold_lock():
+        with db._lock:
+            held.set()
+            release.wait(timeout=30)
+
+    locker = threading.Thread(target=hold_lock)
+    locker.start()
+    try:
+        assert held.wait(timeout=5)
+        t0 = time.monotonic()
+        with pytest.raises(sqlite3.OperationalError):
+            db.touch_session_activity(sid, time.time(), description="working")
+        elapsed = time.monotonic() - t0
+    finally:
+        release.set()
+        locker.join(timeout=3)
+
+    assert elapsed < 1.5, f"activity touch waited {elapsed:.1f}s on in-process lock"
+
+
 def test_s1_clear_labels_noop_skips_transaction(tmp_path, monkeypatch):
     db = SessionDB(db_path=tmp_path / "state.db")
     sid = "S1_NOOP"

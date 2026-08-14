@@ -8,20 +8,20 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-07-27T18:12:13.008010349Z"
+exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for backwards compatibility when using relative exclude-newer values.
 exclude-newer-span = "P14D"
 
 [options.exclude-newer-package]
 vercel = false
-cryptography = false
 aiohttp = false
+cryptography = false
 nemo-relay = false
 huggingface-hub = false
 h2 = false
 
 [manifest]
 overrides = [
-    { name = "h2", specifier = "==4.4.1" },
+    { name = "cryptography", specifier = ">=50,<51" },
     { name = "pynacl", specifier = ">=1.6,<1.7" },
 ]
 
@@ -285,16 +285,19 @@ sdist = { url = "https://files.pythonhosted.org/packages/9a/7d/b22cb9a0d4f396ee0
 
 [[package]]
 name = "alibabacloud-tea-openapi"
-version = "0.3.16"
+version = "0.4.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "alibabacloud-credentials" },
     { name = "alibabacloud-gateway-spi" },
-    { name = "alibabacloud-openapi-util" },
     { name = "alibabacloud-tea-util" },
-    { name = "alibabacloud-tea-xml" },
+    { name = "cryptography" },
+    { name = "darabonba-core" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/09/be/f594e79625e5ccfcfe7f12d7d70709a3c59e920878469c998886211c850d/alibabacloud_tea_openapi-0.3.16.tar.gz", hash = "sha256:6bffed8278597592e67860156f424bde4173a6599d7b6039fb640a3612bae292", size = 13087, upload-time = "2025-07-04T09:30:10.689Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/3b/73/fb0c4d44759791ecdf269fc715c1e810fa1aba3981bfaaf8a01f61899296/alibabacloud_tea_openapi-0.4.5.tar.gz", hash = "sha256:75fa1f4360a46e41f5bf5f8d4917e52efb6f64885839bc1328c35590670c97b9", size = 26616, upload-time = "2026-07-14T13:15:39.364Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8d/ec/6b368a10e9c2e8b1b394c69b96ac213ae66e8c4895e0baa1ffaf7178fd32/alibabacloud_tea_openapi-0.4.5-py3-none-any.whl", hash = "sha256:338979095c7beda80a5b413c31262892cafdc12069dde4ce4fc2e4f7ce0fc609", size = 33333, upload-time = "2026-07-14T13:15:38.365Z" },
+]
 
 [[package]]
 name = "alibabacloud-tea-util"
@@ -307,15 +310,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/e9/ee/ea90be94ad781a505
 wheels = [
     { url = "https://files.pythonhosted.org/packages/72/9e/c394b4e2104766fb28a1e44e3ed36e4c7773b4d05c868e482be99d5635c9/alibabacloud_tea_util-0.3.14-py3-none-any.whl", hash = "sha256:10d3e5c340d8f7ec69dd27345eb2fc5a1dab07875742525edf07bbe86db93bfe", size = 6697, upload-time = "2025-11-19T06:01:07.355Z" },
 ]
-
-[[package]]
-name = "alibabacloud-tea-xml"
-version = "0.0.3"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "alibabacloud-tea" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/32/eb/5e82e419c3061823f3feae9b5681588762929dc4da0176667297c2784c1a/alibabacloud_tea_xml-0.0.3.tar.gz", hash = "sha256:979cb51fadf43de77f41c69fc69c12529728919f849723eb0cd24eb7b048a90c", size = 3466, upload-time = "2025-07-01T08:04:55.144Z" }
 
 [[package]]
 name = "annotated-doc"
@@ -840,6 +834,21 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/ea/03/c0db0a5276599fb44ceafa2f2cb1afd5628808ec406fe036060a39693680/ctranslate2-4.7.1-cp313-cp313-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:393a9e7e989034660526a2c0e8bb65d1924f43d9a5c77d336494a353d16ba2a4", size = 16860452, upload-time = "2026-02-04T06:11:52.276Z" },
     { url = "https://files.pythonhosted.org/packages/0b/03/4e3728ce29d192ee75ed9a2d8589bf4f19edafe5bed3845187de51b179a3/ctranslate2-4.7.1-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:5a3d0682f2b9082e31c73d75b45f16cde77355ab76d7e8356a24c3cb2480a6d3", size = 38995174, upload-time = "2026-02-04T06:11:55.477Z" },
     { url = "https://files.pythonhosted.org/packages/9b/15/6e8e87c6a201d69803a79ac2e29623ce7c2cc9cd1df9db99810cca714373/ctranslate2-4.7.1-cp313-cp313-win_amd64.whl", hash = "sha256:baa6d2b10f57933d8c11791e8522659217918722d07bbef2389a443801125fe7", size = 18844953, upload-time = "2026-02-04T06:11:58.519Z" },
+]
+
+[[package]]
+name = "darabonba-core"
+version = "1.0.8"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "aiohttp" },
+    { name = "alibabacloud-tea" },
+    { name = "requests" },
+    { name = "websocket-client" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f5/83/9321ccdb7a800c2cb97d8fa34bead5f20141f27f804594fd1fd815c4cd07/darabonba_core-1.0.8.tar.gz", hash = "sha256:f1661960b368e342d3d36434be82d264b70a01c49e843921d8a4dacd217376ae", size = 27604, upload-time = "2026-07-13T02:07:34.093Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6d/88/38800ca22f39a31fdb75c7b2867c61d3af5e2792cee0b72942a639c88a79/darabonba_core-1.0.8-py3-none-any.whl", hash = "sha256:ac093fdd40f88f2f9dfbbbfd7bc143495a3cb031f35b397c98d24edfa6b69483", size = 30957, upload-time = "2026-07-13T02:07:33.138Z" },
 ]
 
 [[package]]
@@ -1554,7 +1563,7 @@ wheels = [
 
 [[package]]
 name = "hermes-agent"
-version = "0.20.0"
+version = "0.20.1"
 source = { editable = "." }
 dependencies = [
     { name = "certifi" },
@@ -1566,7 +1575,7 @@ dependencies = [
     { name = "httpx", extra = ["socks"] },
     { name = "jinja2" },
     { name = "markdown" },
-    { name = "nemo-relay", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32') or (platform_machine == 'ARM64' and sys_platform == 'win32')" },
+    { name = "nemo-relay", marker = "(platform_machine == 'aarch64' and 'android' not in platform_release and sys_platform == 'linux') or (platform_machine == 'x86_64' and 'android' not in platform_release and sys_platform == 'linux') or (platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'AMD64' and sys_platform == 'win32') or (platform_machine == 'ARM64' and sys_platform == 'win32')" },
     { name = "openai" },
     { name = "packaging" },
     { name = "pathspec" },
@@ -1607,7 +1616,6 @@ all = [
     { name = "mcp" },
     { name = "pyasn1" },
     { name = "python-multipart" },
-    { name = "simple-term-menu" },
     { name = "starlette" },
     { name = "uvicorn", extra = ["standard"] },
     { name = "youtube-transcript-api" },
@@ -1620,9 +1628,6 @@ azure-identity = [
 ]
 bedrock = [
     { name = "boto3" },
-]
-cli = [
-    { name = "simple-term-menu" },
 ]
 computer-use = [
     { name = "mcp" },
@@ -1735,7 +1740,6 @@ termux = [
     { name = "honcho-ai" },
     { name = "mcp" },
     { name = "python-telegram-bot", extra = ["webhooks"] },
-    { name = "simple-term-menu" },
     { name = "starlette" },
 ]
 termux-all = [
@@ -1752,7 +1756,6 @@ termux-all = [
     { name = "pyasn1" },
     { name = "python-multipart" },
     { name = "python-telegram-bot", extra = ["webhooks"] },
-    { name = "simple-term-menu" },
     { name = "starlette" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -1836,8 +1839,6 @@ requires-dist = [
     { name = "google-auth-oauthlib", marker = "extra == 'google'", specifier = "==1.3.1" },
     { name = "hermes-agent", extras = ["acp"], marker = "extra == 'all'" },
     { name = "hermes-agent", extras = ["acp"], marker = "extra == 'termux'" },
-    { name = "hermes-agent", extras = ["cli"], marker = "extra == 'all'" },
-    { name = "hermes-agent", extras = ["cli"], marker = "extra == 'termux'" },
     { name = "hermes-agent", extras = ["cron"], marker = "extra == 'all'" },
     { name = "hermes-agent", extras = ["cron"], marker = "extra == 'termux'" },
     { name = "hermes-agent", extras = ["google"], marker = "extra == 'all'" },
@@ -1862,7 +1863,7 @@ requires-dist = [
     { name = "jinja2", specifier = "==3.1.6" },
     { name = "lark-oapi", marker = "extra == 'feishu'", specifier = "==1.6.8" },
     { name = "markdown", specifier = "==3.10.2" },
-    { name = "mautrix", extras = ["encryption"], marker = "extra == 'matrix'", specifier = "==0.21.0" },
+    { name = "mautrix", extras = ["encryption"], marker = "extra == 'matrix'", specifier = "==0.21.1" },
     { name = "mcp", marker = "extra == 'computer-use'", specifier = "==1.28.1" },
     { name = "mcp", marker = "extra == 'dev'", specifier = "==1.28.1" },
     { name = "mcp", marker = "extra == 'mcp'", specifier = "==1.28.1" },
@@ -1870,7 +1871,7 @@ requires-dist = [
     { name = "microsoft-teams-apps", marker = "extra == 'teams'", specifier = "==2.0.13.4" },
     { name = "mistralai", marker = "extra == 'mistral'", specifier = "==2.4.8" },
     { name = "modal", marker = "extra == 'modal'", specifier = "==1.3.4" },
-    { name = "nemo-relay", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32') or (platform_machine == 'ARM64' and sys_platform == 'win32')", specifier = ">=0.6.0,<0.7" },
+    { name = "nemo-relay", marker = "(platform_machine == 'aarch64' and 'android' not in platform_release and sys_platform == 'linux') or (platform_machine == 'x86_64' and 'android' not in platform_release and sys_platform == 'linux') or (platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'AMD64' and sys_platform == 'win32') or (platform_machine == 'ARM64' and sys_platform == 'win32')", specifier = ">=0.7.1,<0.8" },
     { name = "numpy", marker = "extra == 'voice'", specifier = "==2.4.3" },
     { name = "numpy", marker = "extra == 'wake'", specifier = "==2.4.3" },
     { name = "onnxruntime", marker = "extra == 'wake'", specifier = "==1.27.0" },
@@ -1894,8 +1895,8 @@ requires-dist = [
     { name = "python-dotenv", specifier = "==1.2.2" },
     { name = "python-multipart", specifier = ">=0.0.9,<1" },
     { name = "python-multipart", marker = "extra == 'web'", specifier = "==0.0.32" },
-    { name = "python-telegram-bot", extras = ["webhooks"], marker = "extra == 'messaging'", specifier = "==22.6" },
-    { name = "python-telegram-bot", extras = ["webhooks"], marker = "extra == 'termux'", specifier = "==22.6" },
+    { name = "python-telegram-bot", extras = ["webhooks"], marker = "extra == 'messaging'", specifier = "==22.8" },
+    { name = "python-telegram-bot", extras = ["webhooks"], marker = "extra == 'termux'", specifier = "==22.8" },
     { name = "pywin32", marker = "sys_platform == 'win32'", specifier = ">=306,<312" },
     { name = "pywinpty", marker = "sys_platform == 'win32'", specifier = ">=2.0.0,<3" },
     { name = "pyyaml", specifier = "==6.0.3" },
@@ -1909,9 +1910,8 @@ requires-dist = [
     { name = "sentencepiece", marker = "extra == 'wake'", specifier = "==0.2.2" },
     { name = "setuptools", marker = "extra == 'dev'", specifier = "==83.0.0" },
     { name = "sherpa-onnx", marker = "extra == 'wake'", specifier = "==1.13.4" },
-    { name = "simple-term-menu", marker = "extra == 'cli'", specifier = "==1.6.6" },
-    { name = "slack-bolt", marker = "extra == 'messaging'", specifier = "==1.29.0" },
-    { name = "slack-bolt", marker = "extra == 'slack'", specifier = "==1.29.0" },
+    { name = "slack-bolt", marker = "extra == 'messaging'", specifier = "==1.30.0" },
+    { name = "slack-bolt", marker = "extra == 'slack'", specifier = "==1.30.0" },
     { name = "slack-sdk", marker = "extra == 'messaging'", specifier = "==3.43.0" },
     { name = "slack-sdk", marker = "extra == 'slack'", specifier = "==3.43.0" },
     { name = "sounddevice", marker = "extra == 'voice'", specifier = "==0.5.5" },
@@ -1931,7 +1931,7 @@ requires-dist = [
     { name = "websockets", specifier = "==15.0.1" },
     { name = "youtube-transcript-api", marker = "extra == 'youtube'", specifier = "==1.2.4" },
 ]
-provides-extras = ["anthropic", "exa", "firecrawl", "parallel-web", "fal", "edge-tts", "modal", "daytona", "vercel", "hindsight", "dev", "messaging", "cron", "slack", "matrix", "wecom", "cli", "tts-premium", "voice", "wake", "honcho", "supermemory", "mem0", "vision", "pty", "mcp", "nemo-relay", "homeassistant", "sms", "teams", "computer-use", "acp", "mistral", "otlp", "bedrock", "vertex", "azure-identity", "termux", "termux-all", "dingtalk", "feishu", "google", "youtube", "web", "all"]
+provides-extras = ["anthropic", "exa", "firecrawl", "parallel-web", "fal", "edge-tts", "modal", "daytona", "vercel", "hindsight", "dev", "messaging", "cron", "slack", "matrix", "wecom", "tts-premium", "voice", "wake", "honcho", "supermemory", "mem0", "vision", "pty", "mcp", "nemo-relay", "homeassistant", "sms", "teams", "computer-use", "acp", "mistral", "otlp", "bedrock", "vertex", "azure-identity", "termux", "termux-all", "dingtalk", "feishu", "google", "youtube", "web", "all"]
 
 [[package]]
 name = "hf-xet"
@@ -2359,16 +2359,16 @@ wheels = [
 
 [[package]]
 name = "mautrix"
-version = "0.21.0"
+version = "0.21.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
     { name = "attrs" },
     { name = "yarl" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/74/a7/8d6d0589e211ecf3a72ce4b28cc32c857c4043d1a6963d63ac9f726af653/mautrix-0.21.0.tar.gz", hash = "sha256:a14e0582e114cb241f282f9e717014608f36c03f1dc59afcd71b4e81780ffe2e", size = 254726, upload-time = "2025-11-17T13:53:09.996Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/8e/51/08e0a30262928b58a3ff4cb8b8cabd43c6b5738dead3468840ec4bdbc20b/mautrix-0.21.1.tar.gz", hash = "sha256:2cad21fcff32bd549192091f9b7b58c01980a7b46f827eef8f34e62d92762b67", size = 254995, upload-time = "2026-07-05T20:33:12.16Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/8c/d6/d4b3ae380dacdc9fb07bc3eb7dd17f43b8a7ce391465a184d1094acb66c1/mautrix-0.21.0-py3-none-any.whl", hash = "sha256:1cba30d69f46351918a3b8bc4e5657465cac8470d42ddd2287a742653cab7194", size = 334131, upload-time = "2025-11-17T13:53:08.117Z" },
+    { url = "https://files.pythonhosted.org/packages/ea/a0/b6a97878fba55003065f389b08856de63a84c7f3b6bb378dcc71b60ed740/mautrix-0.21.1-py3-none-any.whl", hash = "sha256:7685b998eae26f6c5b3a0e010e6dd2d838364009dd7d6319dac804988f4b6823", size = 334424, upload-time = "2026-07-05T20:33:10.298Z" },
 ]
 
 [package.optional-dependencies]
@@ -2535,16 +2535,16 @@ wheels = [
 
 [[package]]
 name = "msal"
-version = "1.37.0"
+version = "1.36.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
     { name = "pyjwt", extra = ["crypto"] },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/9a/99/d840198ecf6e8057bbc937f129ae940404485d736cda73253bbff9537f01/msal-1.37.0.tar.gz", hash = "sha256:1b1672a33ee467c1d70b341bb16cafd51bb3c817147a95b93263794b03971bec", size = 182444, upload-time = "2026-05-29T19:49:05.561Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/de/cb/b02b0f748ac668922364ccb3c3bff5b71628a05f5adfec2ba2a5c3031483/msal-1.36.0.tar.gz", hash = "sha256:3f6a4af2b036b476a4215111c4297b4e6e236ed186cd804faefba23e4990978b", size = 174217, upload-time = "2026-04-09T10:20:33.525Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/94/b0/d807279f4b55d16d1f120d5ac4344c6e39b56732e2a224d40bded7fd67ad/msal-1.37.0-py3-none-any.whl", hash = "sha256:dd17e95a7c71bce75e8108113438ba7c4a086b3bcad4f57a8c09b7af3d753c2d", size = 123725, upload-time = "2026-05-29T19:49:04.335Z" },
+    { url = "https://files.pythonhosted.org/packages/2a/d3/414d1f0a5f6f4fe5313c2b002c54e78a3332970feb3f5fed14237aa17064/msal-1.36.0-py3-none-any.whl", hash = "sha256:36ecac30e2ff4322d956029aabce3c82301c29f0acb1ad89b94edcabb0e58ec4", size = 121547, upload-time = "2026-04-09T10:20:32.336Z" },
 ]
 
 [[package]]
@@ -2692,17 +2692,17 @@ wheels = [
 
 [[package]]
 name = "nemo-relay"
-version = "0.6.0"
+version = "0.7.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/16/db/44d7258ee620c5cce6dc588983fcb11be3ee03ae71089a65686c14d9ee02/nemo_relay-0.6.0.tar.gz", hash = "sha256:f3d3088019609bc953357b5598a47481dc3e7dc8f11ecf27002ede251f37eb7b", size = 1071046, upload-time = "2026-08-03T14:55:49.702Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f3/c8/4a28f9071d5de59c0ddfbea78be15eea12b13a88141bae05a2f26c1018c4/nemo_relay-0.7.1.tar.gz", hash = "sha256:0570c1a07863441e593a74a39e0523ee2bf221739fc7fcaef4bc0c79dcfd929f", size = 1293194, upload-time = "2026-08-07T03:18:11.724Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/25/65/d320016505457cc30971f575e8dadffb923b7cfc780ab8bb25a4ce9d305c/nemo_relay-0.6.0-cp311-abi3-macosx_11_0_arm64.whl", hash = "sha256:ad5dae6febf6532d7b113abc2a404679c8feffc499df3034b93d9a078185d2bb", size = 9917779, upload-time = "2026-07-22T20:07:48.961Z" },
-    { url = "https://files.pythonhosted.org/packages/ae/c0/f33250e71c4206da1b339072893f9a1e39295fe1aceb9a2fef4b8620a0f2/nemo_relay-0.6.0-cp311-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:c0cd9570f64c6956fe3bfb82af1cdb3ee70cb50b51098cdb0de831c3f9b4e904", size = 8888375, upload-time = "2026-07-22T20:07:51.049Z" },
-    { url = "https://files.pythonhosted.org/packages/a3/f4/d1dfaed022da0f6f14765a122867f976a69cc520fe1faaf99757f5719d1f/nemo_relay-0.6.0-cp311-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:849daa9e45158ac581e54506e0fcc7a24f557d1ed06dbdc074f5de7a00393cbc", size = 9336372, upload-time = "2026-07-22T20:07:53.224Z" },
-    { url = "https://files.pythonhosted.org/packages/60/9e/f8b80509eef5e05702b940a3d1e2f60c962548d87dec2d712fd3804e6cd4/nemo_relay-0.6.0-cp311-abi3-musllinux_1_2_aarch64.whl", hash = "sha256:8c80e534b76bb0455cfc222aaf5c10fa064c088b3c0d5e137eb3c97db46dbc47", size = 10578834, upload-time = "2026-07-30T15:44:44.726Z" },
-    { url = "https://files.pythonhosted.org/packages/f0/a0/84ee49d45a1a874457f2f9260d30fd573af30c9be360d9d97b8bb7835ad9/nemo_relay-0.6.0-cp311-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:c8bc4a792a2f8c35ddef1b900cc43be2b2bbbfcd5e7cf65aa0829c04d25eb77f", size = 10849651, upload-time = "2026-07-30T15:44:40.48Z" },
-    { url = "https://files.pythonhosted.org/packages/3a/b0/908d77f75b9054e1e403da78f7d9430249a45939070d4298abbb41a04b5b/nemo_relay-0.6.0-cp311-abi3-win_amd64.whl", hash = "sha256:bfbbedfd130fa95c9b8c04643c30910df850e0ed3500beeab82b00ca2d94e7ea", size = 9613425, upload-time = "2026-07-22T20:07:55.175Z" },
-    { url = "https://files.pythonhosted.org/packages/cd/71/c438b9d746303ff7f270d99f13b250bf947cdac3e52de2a83fd132cbca0b/nemo_relay-0.6.0-cp311-abi3-win_arm64.whl", hash = "sha256:82fe132943399d89e6ec34dc28df0be7bbe41b84f6698c545928b8816b6010f6", size = 9034810, upload-time = "2026-07-22T20:07:57.467Z" },
+    { url = "https://files.pythonhosted.org/packages/48/2f/c1966abc74cd212ae404fa25a777729f4c545fdeb9641c44dcc396cd6d09/nemo_relay-0.7.1-cp311-abi3-macosx_11_0_arm64.whl", hash = "sha256:a26c493b8a6f0e3e49960ba9922015d7ac77ce0ad7d13679136ec553b13d52e7", size = 9245494, upload-time = "2026-08-07T03:17:40.99Z" },
+    { url = "https://files.pythonhosted.org/packages/d2/0a/cb3e37f8c2255cdd74661ea530c8206de2b776d6a5131d396bc0d00d2cbd/nemo_relay-0.7.1-cp311-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:7db593b09e4c78a62cb979ce07ea1773443a18df4d1fc96eba165174c11f927e", size = 8453689, upload-time = "2026-08-07T03:17:43.5Z" },
+    { url = "https://files.pythonhosted.org/packages/27/c7/3ed76753be128da9921607b088d436476af1bc387da4bb55008d5a891025/nemo_relay-0.7.1-cp311-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:711ffc75947cadcbdd49ea36430258cd3ac8ec9d9d1a4293c245d813c9bac23b", size = 8953162, upload-time = "2026-08-07T03:17:45.387Z" },
+    { url = "https://files.pythonhosted.org/packages/09/46/d95930e40eba65b3a126d280dc661d2fd2325e7053df5113299d630aa097/nemo_relay-0.7.1-cp311-abi3-musllinux_1_2_aarch64.whl", hash = "sha256:c912268461fa9ef9ae34bcd2516047d52c4ae5d7313eb7ca80e6ce311b9762ac", size = 10321407, upload-time = "2026-08-07T03:17:47.333Z" },
+    { url = "https://files.pythonhosted.org/packages/84/dc/b74dfdab16172e64a0a730d5c793a564feca50957ca4e983531a7e5f288f/nemo_relay-0.7.1-cp311-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:2de8ee3f9eaee87fc7f17c897fb12502c5405f2f2a01ef89b9c474ff34597019", size = 10703761, upload-time = "2026-08-07T03:17:49.169Z" },
+    { url = "https://files.pythonhosted.org/packages/fa/ce/7e2eb5197763f457a08191ec5d9313399b38e6068d4c22f887e547d86597/nemo_relay-0.7.1-cp311-abi3-win_amd64.whl", hash = "sha256:67888eec2378e598a370faf1f7f92b3d457dc117c558bdd6d81a9e8939840971", size = 8802474, upload-time = "2026-08-07T03:17:51.513Z" },
+    { url = "https://files.pythonhosted.org/packages/ba/f9/7840d53cecc9c8ae92ffe63c8834fdd04cec8f53c0c9bd9483546e9a9c0a/nemo_relay-0.7.1-cp311-abi3-win_arm64.whl", hash = "sha256:d4e1f56e325e7f503447c9f5961690fced5a6e6196cfaa96b54f49416143fe69", size = 8437915, upload-time = "2026-08-07T03:17:53.516Z" },
 ]
 
 [[package]]
@@ -3597,14 +3597,14 @@ wheels = [
 
 [[package]]
 name = "python-telegram-bot"
-version = "22.6"
+version = "22.8"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/cd/9b/8df90c85404166a6631e857027866263adb27440d8af1dbeffbdc4f0166c/python_telegram_bot-22.6.tar.gz", hash = "sha256:50ae8cc10f8dff01445628687951020721f37956966b92a91df4c1bf2d113742", size = 1503761, upload-time = "2026-01-24T13:57:00.269Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ba/77/153517bb1ac1bba670c6fb1dbf09e1fd0730494b1705934e715391413a0d/python_telegram_bot-22.8.tar.gz", hash = "sha256:f9d3847fcb23ee603477e442800b33bb4adf851a73e0619d2050be879decf1ef", size = 1551700, upload-time = "2026-06-12T08:10:29.1Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/13/97/7298f0e1afe3a1ae52ff4c5af5087ed4de319ea73eb3b5c8c4dd4e76e708/python_telegram_bot-22.6-py3-none-any.whl", hash = "sha256:e598fe171c3dde2dfd0f001619ee9110eece66761a677b34719fb18934935ce0", size = 737267, upload-time = "2026-01-24T13:56:58.06Z" },
+    { url = "https://files.pythonhosted.org/packages/60/7c/ed7d4dd94280bd434173cae9f7a7aedaaab9af128ae4f494423a5687c820/python_telegram_bot-22.8-py3-none-any.whl", hash = "sha256:42373918097f1b837cc4e717d588c19ea79651497ec712bb5b0c76e5e63c50e1", size = 769397, upload-time = "2026-06-12T08:10:27.066Z" },
 ]
 
 [package.optional-dependencies]
@@ -4161,15 +4161,6 @@ wheels = [
 ]
 
 [[package]]
-name = "simple-term-menu"
-version = "1.6.6"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/d8/80/f0f10b4045628645a841d3d98b584a8699005ee03a211fc7c45f6c6f0e99/simple_term_menu-1.6.6.tar.gz", hash = "sha256:9813d36f5749d62d200a5599b1ec88469c71378312adc084c00c00bfbb383893", size = 35493, upload-time = "2024-12-02T16:31:50.639Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/9c/09/21d993e394c1fe5c44cd90453d88ed44932da8dfca006e424c072d77d29b/simple_term_menu-1.6.6-py3-none-any.whl", hash = "sha256:c2a869efa7a9f7e4a9c25858b42ca6974034951c137d5e281f5339b06ed8c9c2", size = 27600, upload-time = "2024-12-02T16:31:48.934Z" },
-]
-
-[[package]]
 name = "six"
 version = "1.17.0"
 source = { registry = "https://pypi.org/simple" }
@@ -4180,14 +4171,14 @@ wheels = [
 
 [[package]]
 name = "slack-bolt"
-version = "1.29.0"
+version = "1.30.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "slack-sdk" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3c/2c/7434f5d8c52eafb1e702012e9f291b013bd05985a5b32bde568b2279a28a/slack_bolt-1.29.0.tar.gz", hash = "sha256:b6271ba0a9b71e319c86b40632e6cb6240aacd0433773615b76b890b9a574762", size = 131151, upload-time = "2026-06-30T20:24:44.11Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e3/4f/5ba15533d66da2e7174334cc0e2805142e5390c9f4c5f31633df78b17006/slack_bolt-1.30.0.tar.gz", hash = "sha256:af38258d41f801ad9c74503090e0f39accd66c49f667f7e55c97fcdb0e51b886", size = 131180, upload-time = "2026-07-15T20:47:33.679Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2f/cc/e5f78a80a1775a4cbb2cc41e8ef433602d5e755ff0d829bd43145015740a/slack_bolt-1.29.0-py2.py3-none-any.whl", hash = "sha256:1835b66b778158f3af0da77603aa18d7dfd82fd9b9a985e25c752f95050ab826", size = 235345, upload-time = "2026-06-30T20:24:42.558Z" },
+    { url = "https://files.pythonhosted.org/packages/2f/ee/1a7a286cf98fa3f4eeffaabc090e82f58f058ab4812aa1d7421d92c2637a/slack_bolt-1.30.0-py2.py3-none-any.whl", hash = "sha256:81f5bc46e79516d23d5e2a31dded6304dd1b8b6b72c0083f2f31d5d801e262c4", size = 235341, upload-time = "2026-07-15T20:47:32.113Z" },
 ]
 
 [[package]]
@@ -4769,6 +4760,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/35/a2/8e3becb46433538a38726c948d3399905a4c7cabd0df578ede5dc51f0ec2/wcwidth-0.6.0.tar.gz", hash = "sha256:cdc4e4262d6ef9a1a57e018384cbeb1208d8abbc64176027e2c2455c81313159", size = 159684, upload-time = "2026-02-06T19:19:40.919Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/68/5a/199c59e0a824a3db2b89c5d2dade7ab5f9624dbf6448dc291b46d5ec94d3/wcwidth-0.6.0-py3-none-any.whl", hash = "sha256:1a3a1e510b553315f8e146c54764f4fb6264ffad731b3d78088cdb1478ffbdad", size = 94189, upload-time = "2026-02-06T19:19:39.646Z" },
+]
+
+[[package]]
+name = "websocket-client"
+version = "1.9.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/2c/41/aa4bf9664e4cda14c3b39865b12251e8e7d239f4cd0e3cc1b6c2ccde25c1/websocket_client-1.9.0.tar.gz", hash = "sha256:9e813624b6eb619999a97dc7958469217c3176312b3a16a4bd1bc7e08a46ec98", size = 70576, upload-time = "2025-10-07T21:16:36.495Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/34/db/b10e48aa8fff7407e67470363eac595018441cf32d5e1001567a7aeba5d2/websocket_client-1.9.0-py3-none-any.whl", hash = "sha256:af248a825037ef591efbf6ed20cc5faa03d3b47b9e5a2230a529eeee1c1fc3ef", size = 82616, upload-time = "2025-10-07T21:16:34.951Z" },
 ]
 
 [[package]]
