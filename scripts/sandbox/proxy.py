@@ -11,8 +11,8 @@ forwards to the real host:
   sandbox is isolated from the *host*, not from the internet: a real install
   still has to reach PyPI and npm.
 
-HTTPS is intercepted by minting a per-host certificate from the sandbox's own
-throwaway CA, which the payload trusts via CURL_CA_BUNDLE / SSL_CERT_FILE.
+Fixture HTTPS is intercepted with the sandbox's throwaway CA. Other HTTPS is
+tunneled end-to-end so package managers keep their native TLS behavior.
 
 Usage: proxy.py <fixture-root> <certs-dir> <real-ca-bundle>
 """
@@ -168,10 +168,22 @@ def forward_http(conn, host, port, request, target):
         relay(upstream, conn)
 
 
+def tunnel_https(conn, host, port):
+    """Pass non-fixture TLS through without terminating it in the proxy."""
+    with socket.create_connection((host, port), timeout=UPSTREAM_TIMEOUT_SECONDS) as upstream:
+        conn.sendall(b'HTTP/1.1 200 Connection Established\r\n\r\n')
+        sender = threading.Thread(target=relay, args=(conn, upstream), daemon=True)
+        sender.start()
+        relay(upstream, conn)
+
+
 def handle_connect(conn, target):
-    """Intercept a CONNECT tunnel, terminating TLS with a minted cert."""
+    """Intercept fixture TLS; transparently tunnel every other CONNECT."""
     host, _, port_text = target.rpartition(':')
     port = int(port_text or '443')
+    if not (ROOT / host).is_dir():
+        tunnel_https(conn, host, port)
+        return
     conn.sendall(b'HTTP/1.1 200 Connection Established\r\n\r\n')
     cert, key = cert_for(host)
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
