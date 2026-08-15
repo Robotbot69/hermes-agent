@@ -110,6 +110,7 @@ def test_root_node_dependency_failure_is_fatal(tmp_path: Path) -> None:
     assert calls == [str(install_dir)]
     assert "Node.js dependencies installed" not in proc.stdout
     assert "TUI dependencies installed" not in proc.stdout
+    assert "simulated npm lifecycle failure" in proc.stderr
     assert not (install_dir / "node_modules").exists()
 
 
@@ -126,6 +127,7 @@ def test_tui_node_dependency_failure_is_fatal(tmp_path: Path) -> None:
     assert calls == [str(install_dir), str(tui_dir)]
     assert "Node.js dependencies installed" in proc.stdout
     assert "TUI dependencies installed" not in proc.stdout
+    assert "simulated npm lifecycle failure" in proc.stderr
 
 
 def test_node_dependency_success_remains_successful(tmp_path: Path) -> None:

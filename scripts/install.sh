@@ -2308,7 +2308,7 @@ install_node_deps() {
         # A failed npm install used to still print "✓ Node.js dependencies
         # installed", hiding the degradation from the user (#77003). Now it
         # fails the install outright instead of burying the warning (#85297).
-        if ! run_with_timeout "$NODE_DEPS_TIMEOUT" npm install --silent; then
+        if ! run_with_timeout "$NODE_DEPS_TIMEOUT" npm install --loglevel=error; then
             log_error "npm install failed or timed out; Node.js dependencies were not installed"
             restore_dirty_lockfiles "$INSTALL_DIR"
             return 1
@@ -2414,7 +2414,7 @@ install_node_deps() {
         # Time-boxed: a stalled registry fetch would otherwise hang here (#39219).
         # Report success only on actual success, same as node-deps above
         # (#77003) — and fail the install outright (#85297).
-        if ! run_with_timeout "$NODE_DEPS_TIMEOUT" npm install --silent; then
+        if ! run_with_timeout "$NODE_DEPS_TIMEOUT" npm install --loglevel=error; then
             log_error "TUI npm install failed or timed out; TUI dependencies were not installed"
             restore_dirty_lockfiles "$INSTALL_DIR"
             return 1
