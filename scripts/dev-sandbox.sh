@@ -484,7 +484,14 @@ if [ -t 0 ] && [ -t 1 ]; then
 fi
 NODE_DIR="${DEV_SANDBOX_NODE_DIR:-}"
 if [ -z "$NODE_DIR" ] && command -v node >/dev/null; then
-  NODE_DIR="$(dirname "$(dirname "$(command -v node)")")"
+  node_bin="$(readlink -f "$(command -v node)" 2>/dev/null || true)"
+  node_prefix="$(dirname "$(dirname "$node_bin")")"
+  # Host-runtime sandboxes expose /usr, but replace /usr/local and do not
+  # mount toolcache prefixes such as /opt. Only advertise headers that the
+  # sandbox can actually read; otherwise node-gyp downloads the right version.
+  if [ "$node_prefix" = /usr ] && [ -f /usr/include/node/common.gypi ]; then
+    NODE_DIR=/usr
+  fi
 fi
 WAYLAND_SOCKET=""
 if [ -n "${XDG_RUNTIME_DIR:-}" ] && [ -n "${WAYLAND_DISPLAY:-}" ] \
