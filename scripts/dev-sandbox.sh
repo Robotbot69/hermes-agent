@@ -444,6 +444,8 @@ if [ ! -f "$SANDBOX_ROOT/root/certs/ca.pem" ]; then
     exit 1
   fi
 fi
+cat "$SANDBOX_ROOT/root/certs/real-ca.pem" "$SANDBOX_ROOT/root/certs/ca.pem" \
+  > "$SANDBOX_ROOT/root/certs/combined-ca.pem"
 GIT_UPLOAD_PACK="$(command -v git-upload-pack)"
 sed "s|@GIT_UPLOAD_PACK@|$GIT_UPLOAD_PACK|" "$SANDBOX_ASSETS/ssh-shim.sh" \
   > "$SANDBOX_ROOT/root/usr/bin/ssh"
