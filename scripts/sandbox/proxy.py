@@ -143,11 +143,14 @@ def close_request(request, target=None):
 
 
 def relay(source, destination):
-    while True:
-        chunk = source.recv(MAX_REQUEST_BYTES)
-        if not chunk:
-            return
-        destination.sendall(chunk)
+    try:
+        while True:
+            chunk = source.recv(MAX_REQUEST_BYTES)
+            if not chunk:
+                return
+            destination.sendall(chunk)
+    except OSError:
+        return
 
 
 def forward_https(conn, host, port, request):
@@ -171,6 +174,7 @@ def forward_http(conn, host, port, request, target):
 def tunnel_https(conn, host, port):
     """Pass non-fixture TLS through without terminating it in the proxy."""
     with socket.create_connection((host, port), timeout=UPSTREAM_TIMEOUT_SECONDS) as upstream:
+        upstream.settimeout(None)
         conn.sendall(b'HTTP/1.1 200 Connection Established\r\n\r\n')
         sender = threading.Thread(target=relay, args=(conn, upstream), daemon=True)
         sender.start()
