@@ -265,10 +265,12 @@ def test_oneshot_in_dir_chdirs_before_agent_startup(main_mod, monkeypatch, tmp_p
 
 
 def test_top_level_oneshot_forwards_in_dir(main_mod, monkeypatch, tmp_path):
+    import os
     import sys
 
     target = tmp_path / "oneshot-project"
     target.mkdir()
+    start = os.getcwd()
     captured = {}
 
     monkeypatch.setattr(
@@ -276,7 +278,11 @@ def test_top_level_oneshot_forwards_in_dir(main_mod, monkeypatch, tmp_path):
         "argv",
         ["hermes", "--in", str(target), "--oneshot", "check cwd"],
     )
-    monkeypatch.setattr(main_mod, "_prepare_agent_startup", lambda _args: None)
+    monkeypatch.setattr(
+        main_mod,
+        "_prepare_agent_startup",
+        lambda _args: captured.update(startup_cwd=os.getcwd()),
+    )
     monkeypatch.setattr(
         main_mod, "_confirm_startup_expensive_model_override", lambda _args: None
     )
@@ -288,9 +294,13 @@ def test_top_level_oneshot_forwards_in_dir(main_mod, monkeypatch, tmp_path):
 
     monkeypatch.setattr(main_mod, "_run_and_exit_oneshot", fake_run_and_exit)
 
-    with pytest.raises(SystemExit) as exc:
-        main_mod.main()
+    try:
+        with pytest.raises(SystemExit) as exc:
+            main_mod.main()
+    finally:
+        os.chdir(start)
 
     assert exc.value.code == 0
+    assert captured["startup_cwd"] == str(target.resolve())
     assert captured["prompt"] == "check cwd"
     assert captured["in_dir"] == str(target)
