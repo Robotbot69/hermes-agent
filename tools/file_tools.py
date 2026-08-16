@@ -1091,11 +1091,22 @@ def _check_cross_profile_path(filepath: str, task_id: str = "default") -> str | 
         # plus the write_denied list still apply.
         return None
 
+    mirror_prefix = _get_container_mirror_prefix_for_task(task_id)
+
     # Resolve via the task's cwd so a relative ``skills/foo/SKILL.md``
     # in a session that cd'd into ``~/.hermes/profiles/other/`` is
-    # classified against the right base.
+    # classified against the right base. Preserve container-visible paths:
+    # host resolution can dereference ~/.hermes and memory-file symlinks.
     try:
-        resolved = str(_resolve_path_for_task(filepath, task_id))
+        if mirror_prefix:
+            expanded = _expand_tilde(filepath)
+            if posixpath.isabs(expanded):
+                resolved = str(_normalize_without_host_deref(expanded))
+            else:
+                base = _resolve_base_dir(task_id, container_paths=True)
+                resolved = str(_normalize_without_host_deref(base / expanded))
+        else:
+            resolved = str(_resolve_path_for_task(filepath, task_id))
     except (OSError, ValueError):
         resolved = filepath
 
@@ -1109,7 +1120,7 @@ def _check_cross_profile_path(filepath: str, task_id: str = "default") -> str | 
 
     return get_container_mirror_warning(
         resolved,
-        mirror_prefix=_get_container_mirror_prefix_for_task(task_id),
+        mirror_prefix=mirror_prefix,
     )
 
 

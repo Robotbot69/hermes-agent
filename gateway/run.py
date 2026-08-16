@@ -2937,6 +2937,25 @@ def _format_duration(seconds: float) -> str:
     return f"{minutes}:{secs:02d}"
 
 
+def _delete_transcribed_audio_cache(path: str) -> bool:
+    """Delete a successfully transcribed file only from Hermes' audio cache."""
+    from gateway.platforms.base import get_audio_cache_dir
+
+    candidate = Path(os.path.abspath(path))
+    cache_dir = Path(os.path.abspath(str(get_audio_cache_dir())))
+    try:
+        candidate.relative_to(cache_dir)
+    except ValueError:
+        logger.warning("Refusing to delete transcribed audio outside cache: %s", path)
+        return False
+    try:
+        candidate.unlink(missing_ok=True)
+    except OSError as exc:
+        logger.warning("Could not delete transcribed audio cache %s: %s", path, exc)
+        return False
+    return True
+
+
 async def _probe_audio_duration(path: str) -> Optional[str]:
     """Best-effort duration probe. Returns formatted MM:SS / HH:MM:SS, or None on failure."""
     ext = os.path.splitext(path)[1].lower()
@@ -24113,6 +24132,12 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                         )
                         result = fallback
                 if result["success"]:
+                    if getattr(
+                        self.config,
+                        "stt_delete_audio_after_transcription",
+                        False,
+                    ):
+                        _delete_transcribed_audio_cache(path)
                     transcript = result["transcript"]
                     # Speech-to-text can return success=True with an empty or
                     # whitespace-only transcript on silence, cut-off, or

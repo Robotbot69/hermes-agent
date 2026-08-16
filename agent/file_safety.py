@@ -704,10 +704,13 @@ def classify_container_mirror_target(
     if not mirror_prefix:
         return None
     try:
-        target = Path(os.path.expanduser(str(path))).resolve()
-        mirror = Path(os.path.expanduser(mirror_prefix)).resolve()
+        # Preserve the container-visible path.  ``resolve()`` follows the
+        # production ~/.hermes and memory-file symlinks, which loses both the
+        # declared mirror root and the authoritative inner path in warnings.
+        target = Path(os.path.abspath(os.path.expanduser(str(path))))
+        mirror = Path(os.path.abspath(os.path.expanduser(mirror_prefix)))
         inner = target.relative_to(mirror)
-    except (OSError, RuntimeError, ValueError):
+    except (OSError, ValueError):
         return None
     return {
         "target_path": str(target),

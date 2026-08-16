@@ -16,6 +16,13 @@ def test_gateway_config_stt_disabled_from_dict_nested():
     assert config.stt_enabled is False
 
 
+def test_gateway_config_delete_audio_after_transcription_from_dict_nested():
+    config = GatewayConfig.from_dict(
+        {"stt": {"delete_audio_after_transcription": True}}
+    )
+    assert config.stt_delete_audio_after_transcription is True
+
+
 def test_load_gateway_config_bridges_stt_enabled_from_config_yaml(tmp_path, monkeypatch):
     hermes_home = tmp_path / ".hermes"
     hermes_home.mkdir()
@@ -94,4 +101,30 @@ async def test_enrich_message_with_transcription_guards_empty_transcript():
     assert '""' not in result
     assert transcripts == []
 
+
+@pytest.mark.asyncio
+async def test_successful_transcription_deletes_only_cached_audio(tmp_path, monkeypatch):
+    from gateway.platforms.base import cache_audio_from_bytes
+    from gateway.run import GatewayRunner
+
+    monkeypatch.setenv("HERMES_AUDIO_CACHE_DIR", str(tmp_path / "audio-cache"))
+    cached = Path(cache_audio_from_bytes(b"cached voice"))
+    outside = tmp_path / "outside.ogg"
+    outside.write_bytes(b"keep me")
+
+    runner = GatewayRunner.__new__(GatewayRunner)
+    runner.config = GatewayConfig(
+        stt_enabled=True,
+        stt_delete_audio_after_transcription=True,
+    )
+    runner._has_setup_skill = lambda: False
+
+    with patch(
+        "tools.transcription_tools.transcribe_audio",
+        return_value={"success": True, "transcript": "hello", "provider": "local"},
+    ):
+        await runner._enrich_message_with_transcription("", [str(cached), str(outside)])
+
+    assert not cached.exists()
+    assert outside.exists()
 

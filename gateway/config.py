@@ -958,6 +958,7 @@ class GatewayConfig:
     # STT settings
     stt_enabled: bool = True  # Whether to auto-transcribe inbound voice messages
     stt_echo_transcripts: bool = True  # Whether to echo raw STT transcripts back to the user
+    stt_delete_audio_after_transcription: bool = False
 
     # Session isolation in shared chats
     group_sessions_per_user: bool = True  # Isolate group/channel sessions per participant when user IDs are available
@@ -1117,6 +1118,7 @@ class GatewayConfig:
             "filter_silence_narration": self.filter_silence_narration,
             "stt_enabled": self.stt_enabled,
             "stt_echo_transcripts": self.stt_echo_transcripts,
+            "stt_delete_audio_after_transcription": self.stt_delete_audio_after_transcription,
             "group_sessions_per_user": self.group_sessions_per_user,
             "thread_sessions_per_user": self.thread_sessions_per_user,
             "max_concurrent_sessions": self.max_concurrent_sessions,
@@ -1178,6 +1180,15 @@ class GatewayConfig:
         if stt_echo_transcripts is None:
             stt_echo_transcripts = (
                 data.get("stt", {}).get("echo_transcripts")
+                if isinstance(data.get("stt"), dict)
+                else None
+            )
+        stt_delete_audio_after_transcription = data.get(
+            "stt_delete_audio_after_transcription"
+        )
+        if stt_delete_audio_after_transcription is None:
+            stt_delete_audio_after_transcription = (
+                data.get("stt", {}).get("delete_audio_after_transcription")
                 if isinstance(data.get("stt"), dict)
                 else None
             )
@@ -1263,6 +1274,9 @@ class GatewayConfig:
             ),
             stt_enabled=_coerce_bool(stt_enabled, True),
             stt_echo_transcripts=_coerce_bool(stt_echo_transcripts, True),
+            stt_delete_audio_after_transcription=_coerce_bool(
+                stt_delete_audio_after_transcription, False
+            ),
             group_sessions_per_user=_coerce_bool(group_sessions_per_user, True),
             thread_sessions_per_user=_coerce_bool(thread_sessions_per_user, False),
             multiplex_profiles=_coerce_bool(multiplex_profiles, False),
