@@ -678,6 +678,25 @@ def telegram_bot_commands() -> list[tuple[str, str]]:
     return result
 
 
+def _telegram_quick_command_entries() -> list[tuple[str, str]]:
+    """Return configured quick commands for Telegram's command picker."""
+    try:
+        from hermes_cli.config import read_raw_config
+        quick_commands = (read_raw_config() or {}).get("quick_commands", {})
+    except Exception:
+        return []
+    if not isinstance(quick_commands, Mapping):
+        return []
+    result: list[tuple[str, str]] = []
+    for raw_name, raw_entry in quick_commands.items():
+        name = _sanitize_telegram_name(str(raw_name))
+        if not name or not isinstance(raw_entry, Mapping):
+            continue
+        description = str(raw_entry.get("description") or f"Run /{name}")
+        result.append((name, description))
+    return result
+
+
 # Telegram allows up to 100 BotCommands. Hermes ships ~50 built-in commands;
 # a 60-slot default keeps every built-in plus common skill commands visible in
 # the `/` menu while staying comfortably under Telegram's ~4KB payload limit.
@@ -1044,7 +1063,13 @@ def telegram_menu_commands(max_commands: int = 100) -> tuple[list[tuple[str, str
         (menu_commands, hidden_count) where hidden_count is the number of
         commands omitted due to the cap.
     """
-    core_commands = _prioritize_telegram_menu_commands(list(telegram_bot_commands()))
+    core_commands = list(telegram_bot_commands())
+    seen_names = {name for name, _ in core_commands}
+    for entry in _telegram_quick_command_entries():
+        if entry[0] not in seen_names:
+            core_commands.append(entry)
+            seen_names.add(entry[0])
+    core_commands = _prioritize_telegram_menu_commands(core_commands)
     reserved_names = {n for n, _ in core_commands}
     all_commands = list(core_commands)
     hidden_core_count = max(0, len(all_commands) - max_commands)

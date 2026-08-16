@@ -1575,6 +1575,21 @@ def _resolve_allow_private_urls() -> bool:
     return False
 
 
+def _enforce_private_url_guard_on_local() -> bool:
+    """Return whether private-URL checks also apply to local/CDP browsers."""
+    try:
+        from hermes_cli.config import read_raw_config
+
+        cfg = read_raw_config()
+        browser_cfg = cfg.get("browser", {})
+        return isinstance(browser_cfg, dict) and is_truthy_value(
+            browser_cfg.get("enforce_private_url_guard_on_local"), default=False
+        )
+    except Exception as exc:
+        logger.debug("Could not read local private-URL guard config: %s", exc)
+        return False
+
+
 def _socket_safe_tmpdir() -> str:
     """Return a short temp directory path suitable for Unix domain sockets.
 
@@ -3377,8 +3392,10 @@ def browser_navigate(url: str, task_id: Optional[str] = None) -> str:
         })
 
     if (
-        not _is_local_backend()
-        and not auto_local_this_nav
+        (
+            _enforce_private_url_guard_on_local()
+            or (not _is_local_backend() and not auto_local_this_nav)
+        )
         and not _allow_private_urls()
         and not _is_safe_url(url)
     ):
@@ -3453,8 +3470,10 @@ def browser_navigate(url: str, task_id: Optional[str] = None) -> str:
             })
 
         if (
-            not _is_local_backend()
-            and not auto_local_this_nav
+            (
+                _enforce_private_url_guard_on_local()
+                or (not _is_local_backend() and not auto_local_this_nav)
+            )
             and not _allow_private_urls()
             and final_url and final_url != url and not _is_safe_url(final_url)
         ):
@@ -3569,8 +3588,13 @@ def browser_snapshot(
         # private/internal address, the snapshot would expose private page content.
         # Re-check the current URL before returning the snapshot.
         if (
-            not _is_local_backend()
-            and not _is_local_sidecar_key(effective_task_id)
+            (
+                _enforce_private_url_guard_on_local()
+                or (
+                    not _is_local_backend()
+                    and not _is_local_sidecar_key(effective_task_id)
+                )
+            )
             and not _allow_private_urls()
         ):
             try:
@@ -3967,9 +3991,14 @@ def _eval_ssrf_guard_active(effective_task_id: str) -> bool:
     sidecar sessions and when ``allow_private_urls`` is set.
     """
     return (
-        not _is_local_backend()
-        and not _is_local_sidecar_key(effective_task_id)
-        and not _allow_private_urls()
+        not _allow_private_urls()
+        and (
+            _enforce_private_url_guard_on_local()
+            or (
+                not _is_local_backend()
+                and not _is_local_sidecar_key(effective_task_id)
+            )
+        )
     )
 
 
@@ -4568,8 +4597,13 @@ def browser_vision(question: str, annotate: bool = False, task_id: Optional[str]
     # private/internal address, the screenshot would expose private page content
     # to the vision model.  Re-check the current URL before capturing anything.
     if (
-        not _is_local_backend()
-        and not _is_local_sidecar_key(effective_task_id)
+        (
+            _enforce_private_url_guard_on_local()
+            or (
+                not _is_local_backend()
+                and not _is_local_sidecar_key(effective_task_id)
+            )
+        )
         and not _allow_private_urls()
     ):
         try:
