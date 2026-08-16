@@ -21,6 +21,18 @@ interface Exposed {
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
+const waitFor = async (predicate: () => boolean, timeoutMs = 2_000): Promise<void> => {
+  const deadline = Date.now() + timeoutMs
+
+  while (!predicate()) {
+    if (Date.now() >= deadline) {
+      throw new Error(`Timed out waiting for virtual history state after ${timeoutMs}ms`)
+    }
+
+    await delay(10)
+  }
+}
+
 const makeStreams = () => {
   const stdout = new PassThrough()
   const stdin = new PassThrough()
@@ -387,7 +399,7 @@ describe('useVirtualHistory offset cache reuse', () => {
       await delay(20)
 
       instance.rerender(React.createElement(Harness, { expose, initialHeights, items: after }))
-      await delay(40)
+      await waitFor(() => expose.current!.scroll!.getScrollTop() === 6)
 
       expect(expose.current!.scroll!.getScrollTop()).toBe(6)
     } finally {
@@ -539,7 +551,7 @@ describe('useVirtualHistory offset cache reuse', () => {
 
       staleHeights.set(items[0]!.key, 1)
       instance.rerender(React.createElement(Harness, { expose, initialHeights: staleHeights, items }))
-      await delay(40)
+      await waitFor(() => adjustScrollTop.mock.calls.length === 1 && scroll.getScrollTop() === 6)
 
       expect(adjustScrollTop).toHaveBeenCalledOnce()
       expect(adjustScrollTop).toHaveBeenCalledWith(1)
