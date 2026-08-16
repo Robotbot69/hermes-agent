@@ -173,15 +173,42 @@ def _cleanup_oneshot_runtime() -> None:
         pass
 
 
+def _apply_in_dir(in_dir: object) -> bool:
+    """Enter an explicit ``--in`` directory before agent startup."""
+    if not in_dir:
+        return False
+
+    from tools.environments.local import _msys_to_windows_path
+
+    raw_dir = os.fspath(in_dir)
+    translated_dir = _msys_to_windows_path(raw_dir)
+    if translated_dir == "~" or translated_dir.startswith(("~/", "~\\")):
+        explicit_home = os.environ.get("HOME")
+        if explicit_home:
+            translated_dir = explicit_home + translated_dir[1:]
+    target_dir = os.path.abspath(os.path.expanduser(translated_dir))
+    if not os.path.isdir(target_dir):
+        print(f"Error: --in directory not found: {raw_dir}")
+        sys.exit(1)
+    try:
+        os.chdir(target_dir)
+    except OSError as exc:
+        print(f"Error: cannot enter --in directory {raw_dir}: {exc}")
+        sys.exit(1)
+    return True
+
+
 def _run_and_exit_oneshot(
     prompt: str,
     *,
+    in_dir: object = None,
     model: object = None,
     provider: object = None,
     toolsets: object = None,
     usage_file: object = None,
 ) -> None:
     try:
+        _apply_in_dir(in_dir)
         from hermes_cli.oneshot import run_oneshot
 
         rc = run_oneshot(
@@ -2923,25 +2950,7 @@ def cmd_chat(args):
     # workspace-scoped "latest"/-c lookups key off DIR, and it pins the
     # session there — an explicit --in wins over a resumed session's
     # recorded cwd (so the restore step below is skipped).
-    in_dir = getattr(args, "in_dir", None)
-    if in_dir:
-        # Git Bash / MSYS hands the CLI POSIX-style paths (`--in ~` expands to
-        # `/c/Users/x` before Python ever sees it; MSYS2's path conversion is
-        # disabled for native executables). Translate the MSYS/Cygwin/WSL
-        # drive-root spellings to native Windows form first — no-op elsewhere.
-        from tools.environments.local import _msys_to_windows_path
-
-        _target_dir = os.path.abspath(
-            os.path.expanduser(_msys_to_windows_path(in_dir))
-        )
-        if not os.path.isdir(_target_dir):
-            print(f"Error: --in directory not found: {in_dir}")
-            sys.exit(1)
-        try:
-            os.chdir(_target_dir)
-        except OSError as e:
-            print(f"Error: cannot enter --in directory {in_dir}: {e}")
-            sys.exit(1)
+    if _apply_in_dir(getattr(args, "in_dir", None)):
         args.no_restore_cwd = True
 
     # --resume latest: keyword for "most recent session" — same resolution
@@ -11651,6 +11660,7 @@ def _try_fast_chat_launch() -> bool:
         _confirm_startup_expensive_model_override(args)
         _run_and_exit_oneshot(
             args.oneshot,
+            in_dir=getattr(args, "in_dir", None),
             model=getattr(args, "model", None),
             provider=getattr(args, "provider", None),
             toolsets=getattr(args, "toolsets", None),
@@ -11708,6 +11718,7 @@ def _try_termux_fast_cli_launch() -> bool:
         _confirm_startup_expensive_model_override(args)
         _run_and_exit_oneshot(
             args.oneshot,
+            in_dir=getattr(args, "in_dir", None),
             model=getattr(args, "model", None),
             provider=getattr(args, "provider", None),
             toolsets=getattr(args, "toolsets", None),
@@ -13507,6 +13518,7 @@ def main():
         _confirm_startup_expensive_model_override(args)
         _run_and_exit_oneshot(
             args.oneshot,
+            in_dir=getattr(args, "in_dir", None),
             model=getattr(args, "model", None),
             provider=getattr(args, "provider", None),
             toolsets=getattr(args, "toolsets", None),
