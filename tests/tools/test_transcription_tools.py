@@ -568,7 +568,7 @@ class TestTranscribeAudioDispatch:
     def test_explicit_runtime_fallback_recovers(self, sample_ogg):
         config = {"provider": "local", "fallback_providers": ["groq"]}
 
-        def dispatch(_path, _model=None, *, provider_override=None):
+        def dispatch(_path, _model=None, _source=None, *, provider_override=None):
             if provider_override == "groq":
                 return {"success": True, "transcript": "cloud result", "provider": "groq"}
             return {"success": False, "transcript": "", "error": "local failed"}
