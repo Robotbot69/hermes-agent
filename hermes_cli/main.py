@@ -11654,6 +11654,8 @@ def _try_fast_chat_launch() -> bool:
 
     if getattr(args, "yolo", False):
         os.environ["HERMES_YOLO_MODE"] = "1"
+    if _apply_in_dir(getattr(args, "in_dir", None)):
+        args.no_restore_cwd = True
     _prepare_agent_startup(args)
 
     if getattr(args, "oneshot", None):
@@ -11714,6 +11716,8 @@ def _try_termux_fast_cli_launch() -> bool:
         return True
 
     if getattr(args, "oneshot", None):
+        if _apply_in_dir(getattr(args, "in_dir", None)):
+            args.no_restore_cwd = True
         _prepare_agent_startup(args)
         _confirm_startup_expensive_model_override(args)
         _run_and_exit_oneshot(
@@ -13504,6 +13508,9 @@ def main():
     # value is already False and --yolo silently does nothing.
     if getattr(args, "yolo", False):
         os.environ["HERMES_YOLO_MODE"] = "1"
+
+    if _apply_in_dir(getattr(args, "in_dir", None)):
+        args.no_restore_cwd = True
 
     # Discover Python plugins and register shell hooks once, before any
     # command that can fire lifecycle hooks.  Both are idempotent; gated
