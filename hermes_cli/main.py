@@ -195,6 +195,12 @@ def _apply_in_dir(in_dir: object) -> bool:
     except OSError as exc:
         print(f"Error: cannot enter --in directory {raw_dir}: {exc}")
         sys.exit(1)
+    # ``gateway.run`` may be imported lazily by the relay coordinator during
+    # a CLI turn. Its gateway bootstrap resolves an unset/placeholder cwd to
+    # the user home, so preserve the explicit CLI workspace for that import.
+    # Keep this separate from TERMINAL_CWD so the deprecated-.env warning does
+    # not misidentify a runtime CLI selection as persisted user configuration.
+    os.environ["HERMES_CLI_IN_DIR"] = target_dir
     return True
 
 
