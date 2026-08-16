@@ -24,6 +24,7 @@ mcp = false
 python-olm = false
 nemo-relay = false
 huggingface-hub = false
+
 [manifest]
 overrides = [
     { name = "cryptography", specifier = ">=50,<51" },
