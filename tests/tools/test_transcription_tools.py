@@ -565,6 +565,22 @@ class TestTranscribeAudioDispatch:
 
         assert mock_local.call_args[0][1] == "small"
 
+    def test_explicit_runtime_fallback_recovers(self, sample_ogg):
+        config = {"provider": "local", "fallback_providers": ["groq"]}
+
+        def dispatch(_path, _model=None, *, provider_override=None):
+            if provider_override == "groq":
+                return {"success": True, "transcript": "cloud result", "provider": "groq"}
+            return {"success": False, "transcript": "", "error": "local failed"}
+
+        with patch("tools.transcription_tools._load_stt_config", return_value=config), \
+             patch("tools.transcription_tools._transcribe_prepared_audio", side_effect=dispatch) as mock_dispatch:
+            from tools.transcription_tools import transcribe_audio
+            result = transcribe_audio(sample_ogg)
+
+        assert result == {"success": True, "transcript": "cloud result", "provider": "groq"}
+        assert mock_dispatch.call_count == 2
+
 # ============================================================================
 # _transcribe_mistral
 # ============================================================================

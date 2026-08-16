@@ -2904,6 +2904,8 @@ def _transcribe_prepared_audio(
     file_path: str,
     model: Optional[str] = None,
     source: Optional[str] = None,
+    *,
+    provider_override: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Transcribe an audio file using the configured STT provider.
@@ -2951,7 +2953,10 @@ def _transcribe_prepared_audio(
             "error": "STT is disabled in config.yaml (stt.enabled: false).",
         }
 
-    provider = _get_provider(stt_config)
+    provider_config = stt_config
+    if provider_override:
+        provider_config = {**stt_config, "provider": provider_override}
+    provider = _get_provider(provider_config)
     if not _is_local_stt_provider(provider, stt_config):
         error = _validate_audio_file_size(Path(file_path))
         if error:
@@ -3150,6 +3155,21 @@ def _dispatch_stt_provider(
     }
 
 
+def _configured_stt_fallbacks(stt_config: Dict[str, Any]) -> list[str]:
+    """Return the explicit, ordered STT fallback provider list."""
+    raw = stt_config.get("fallback_providers", [])
+    if not isinstance(raw, (list, tuple)):
+        return []
+
+    primary = str(stt_config.get("provider") or "").strip().lower()
+    fallbacks: list[str] = []
+    for item in raw:
+        provider = str(item or "").strip().lower()
+        if provider and provider != primary and provider not in fallbacks:
+            fallbacks.append(provider)
+    return fallbacks
+
+
 def transcribe_audio(
     file_path: str,
     model: Optional[str] = None,
@@ -3161,6 +3181,7 @@ def transcribe_audio(
     ``"voice_mode"``) forwarded to the ``pre_transcription`` plugin hook for
     observability. Not used for dispatch.
     """
+
     # Refuse to feed a credential / secret store (auth.json, .env, OAuth
     # tokens, mcp-tokens/, ...) to an STT provider — before ANY validation or
     # preprocessing, so the refusal names the real reason rather than a
@@ -3192,7 +3213,30 @@ def transcribe_audio(
         prepared_error = _validate_audio_file(prepared_path, enforce_size_limit=False)
         if prepared_error:
             return prepared_error
-        return _transcribe_prepared_audio(prepared_path, model, source)
+        result = _transcribe_prepared_audio(prepared_path, model, source)
+        if result.get("success"):
+            return result
+
+        stt_config = _load_stt_config()
+        for fallback_provider in _configured_stt_fallbacks(stt_config):
+            fallback = _transcribe_prepared_audio(
+                prepared_path,
+                model,
+                source,
+                provider_override=fallback_provider,
+            )
+            if fallback.get("success"):
+                logger.info(
+                    "Configured STT failed; recovered with fallback provider '%s'",
+                    fallback_provider,
+                )
+                return fallback
+            logger.warning(
+                "STT fallback provider '%s' failed: %s",
+                fallback_provider,
+                fallback.get("error", "unknown error"),
+            )
+        return result
     finally:
         if cleanup_dir:
             shutil.rmtree(cleanup_dir, ignore_errors=True)

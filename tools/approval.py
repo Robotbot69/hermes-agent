@@ -868,6 +868,9 @@ DANGEROUS_PATTERNS = [
     (r'\bTRUNCATE\s+(TABLE)?\s*\w', "SQL TRUNCATE"),
     (rf'>\s*{_SYSTEM_CONFIG_PATH}', "overwrite system config"),
     (r'\bsystemctl\s+(-[^\s]+\s+)*(stop|restart|disable|mask)\b', "stop/restart system service"),
+    # Listing a crontab is read-only; editing, removing, or installing one
+    # changes persistent scheduled execution and must require approval.
+    (r'\bcrontab\b(?![^\n;|&]*\s(?:-[a-z]*l[a-z]*|--list)\b)', "modify user crontab"),
     (r'\bkill\s+-9\s+-1\b', "kill all processes"),
     (r'\bpkill\s+-9\b', "force kill processes"),
     # killall with SIGKILL (parallel to pkill -9). Catches -9 / -KILL /
@@ -1222,7 +1225,10 @@ def _home_prefix_fold_regex(path: str):
     # mirrors the historical ``count("/") >= 2`` guard (``/home/alice`` folds,
     # ``/home`` does not); for Windows it rejects a bare drive root (``C:\\``)
     # while accepting a real home (``C:\\Users\\alice``).
-    if len(components) < 2:
+    # POSIX root's real home is the one-component /root.  Treat it as a
+    # legitimate home prefix; still reject /, /home, drive roots, and other
+    # ambiguous one-component paths.
+    if len(components) < 2 and os.path.normpath(path) != "/root":
         return None
     body = r"[/\\]+".join(re.escape(c) for c in components)
     # Optional leading root separator (POSIX ``/`` or UNC ``\\``); a Windows
