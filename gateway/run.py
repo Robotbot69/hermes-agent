@@ -2475,7 +2475,10 @@ os.environ["HERMES_QUIET"] = "1"
 from gateway.cwd_placeholder import CWD_PLACEHOLDERS, resolve_placeholder_terminal_cwd
 
 _configured_cwd = os.environ.get("TERMINAL_CWD", "")
-if not _configured_cwd or _configured_cwd in CWD_PLACEHOLDERS:
+_explicit_cli_cwd = os.environ.get("HERMES_CLI_IN_DIR", "").strip()
+if _explicit_cli_cwd and Path(_explicit_cli_cwd).is_dir():
+    os.environ["TERMINAL_CWD"] = _explicit_cli_cwd
+elif not _configured_cwd or _configured_cwd in CWD_PLACEHOLDERS:
     _resolved_cwd = resolve_placeholder_terminal_cwd(
         configured_cwd=_configured_cwd,
         terminal_backend=os.environ.get("TERMINAL_ENV", ""),

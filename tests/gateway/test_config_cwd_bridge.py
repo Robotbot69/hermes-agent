@@ -80,7 +80,10 @@ def _simulate_config_bridge(cfg: dict, initial_env: dict | None = None):
 
     # --- Replicate gateway/run.py placeholder TERMINAL_CWD resolution ---
     configured_cwd = env.get("TERMINAL_CWD", "")
-    if not configured_cwd or configured_cwd in CWD_PLACEHOLDERS:
+    explicit_cli_cwd = env.get("HERMES_CLI_IN_DIR", "").strip()
+    if explicit_cli_cwd and os.path.isdir(explicit_cli_cwd):
+        env["TERMINAL_CWD"] = explicit_cli_cwd
+    elif not configured_cwd or configured_cwd in CWD_PLACEHOLDERS:
         resolved = resolve_placeholder_terminal_cwd(
             configured_cwd=configured_cwd,
             terminal_backend=env.get("TERMINAL_ENV", ""),
@@ -141,6 +144,15 @@ class TestTopLevelCwdAlias:
         cfg = {"cwd": "auto"}
         result = _simulate_config_bridge(cfg, {"MESSAGING_CWD": "/home/hermes"})
         assert result["TERMINAL_CWD"] == "/home/hermes"
+
+    def test_explicit_cli_in_dir_wins_over_gateway_home_fallback(self, tmp_path):
+        workspace = tmp_path / "project"
+        workspace.mkdir()
+        result = _simulate_config_bridge(
+            {"terminal": {"cwd": ".", "backend": "local"}},
+            {"HERMES_CLI_IN_DIR": str(workspace)},
+        )
+        assert result["TERMINAL_CWD"] == str(workspace)
 
 
 class TestNestedTerminalCwdPlaceholderSkip:

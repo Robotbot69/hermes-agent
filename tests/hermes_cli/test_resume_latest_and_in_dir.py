@@ -231,6 +231,21 @@ def test_in_dir_expands_user_home(main_mod, launched, monkeypatch, tmp_path):
         os.chdir(start)
 
 
+def test_in_dir_preserves_cwd_for_lazy_gateway_import(main_mod, monkeypatch, tmp_path):
+    import os
+
+    target = tmp_path / "runtime-project"
+    target.mkdir()
+    start = os.getcwd()
+    monkeypatch.delenv("HERMES_CLI_IN_DIR", raising=False)
+
+    try:
+        assert main_mod._apply_in_dir(str(target)) is True
+        assert os.environ["HERMES_CLI_IN_DIR"] == str(target.resolve())
+    finally:
+        os.chdir(start)
+
+
 def test_oneshot_in_dir_chdirs_before_agent_startup(main_mod, monkeypatch, tmp_path):
     import os
 
