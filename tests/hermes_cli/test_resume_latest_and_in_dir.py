@@ -229,3 +229,68 @@ def test_in_dir_expands_user_home(main_mod, launched, monkeypatch, tmp_path):
         assert os.getcwd() == str((home / "proj").resolve())
     finally:
         os.chdir(start)
+
+
+def test_oneshot_in_dir_chdirs_before_agent_startup(main_mod, monkeypatch, tmp_path):
+    import os
+
+    import hermes_cli.oneshot as oneshot_mod
+
+    target = tmp_path / "oneshot-project"
+    target.mkdir()
+    start = os.getcwd()
+    seen = {}
+
+    def fake_run_oneshot(prompt, **_kwargs):
+        seen["prompt"] = prompt
+        seen["cwd"] = os.getcwd()
+        return 0
+
+    monkeypatch.setattr(oneshot_mod, "run_oneshot", fake_run_oneshot)
+    monkeypatch.setattr(main_mod, "_cleanup_oneshot_runtime", lambda: None)
+    monkeypatch.setattr(
+        main_mod, "_exit_after_oneshot", lambda rc: seen.update(return_code=rc)
+    )
+
+    try:
+        main_mod._run_and_exit_oneshot("check cwd", in_dir=str(target))
+    finally:
+        os.chdir(start)
+
+    assert seen == {
+        "prompt": "check cwd",
+        "cwd": str(target.resolve()),
+        "return_code": 0,
+    }
+
+
+def test_top_level_oneshot_forwards_in_dir(main_mod, monkeypatch, tmp_path):
+    import sys
+
+    target = tmp_path / "oneshot-project"
+    target.mkdir()
+    captured = {}
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["hermes", "--in", str(target), "--oneshot", "check cwd"],
+    )
+    monkeypatch.setattr(main_mod, "_prepare_agent_startup", lambda _args: None)
+    monkeypatch.setattr(
+        main_mod, "_confirm_startup_expensive_model_override", lambda _args: None
+    )
+
+    def fake_run_and_exit(prompt, **kwargs):
+        captured["prompt"] = prompt
+        captured.update(kwargs)
+        raise SystemExit(0)
+
+    monkeypatch.setattr(main_mod, "_run_and_exit_oneshot", fake_run_and_exit)
+
+    with pytest.raises(SystemExit) as exc:
+        main_mod.main()
+
+    assert exc.value.code == 0
+    assert captured["prompt"] == "check cwd"
+    assert captured["in_dir"] == str(target)

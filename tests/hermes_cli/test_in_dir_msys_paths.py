@@ -40,20 +40,24 @@ class TestInDirMsysResolution:
         with mock.patch("tools.environments.local._IS_WINDOWS", False):
             assert _msys_to_windows_path("/c/Users/alice") == "/c/Users/alice"
 
-    def test_main_call_site_uses_translation(self):
-        """Guard: the --in resolution in hermes_cli.main must route through
-        _msys_to_windows_path (a plain expanduser/abspath does not survive
-        Git Bash). Source-level check keeps this honest without spawning
-        the full CLI."""
-        import inspect
+    def test_main_call_site_uses_translation(self, tmp_path):
+        """The shared ``--in`` resolver applies MSYS translation."""
+        import os
 
         import hermes_cli.main as main_mod
 
-        src = inspect.getsource(main_mod)
-        idx = src.find('in_dir = getattr(args, "in_dir", None)')
-        assert idx != -1, "--in resolution block moved; update this test"
-        block = src[idx : idx + 800]
-        assert "_msys_to_windows_path" in block, (
-            "--in no longer translates MSYS paths; Git Bash `--in ~` will "
-            "fail with '--in directory not found: /c/Users/...'"
-        )
+        target = tmp_path / "project"
+        target.mkdir()
+        start = os.getcwd()
+
+        try:
+            with mock.patch(
+                "tools.environments.local._msys_to_windows_path",
+                return_value=str(target),
+            ) as translate:
+                assert main_mod._apply_in_dir("/c/Users/alice/project") is True
+                assert os.getcwd() == str(target.resolve())
+        finally:
+            os.chdir(start)
+
+        translate.assert_called_once_with("/c/Users/alice/project")
