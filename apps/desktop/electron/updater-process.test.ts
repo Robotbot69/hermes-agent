@@ -7,13 +7,17 @@ import { test } from 'vitest'
 import {
   collectRelaunchArgs,
   MARKER_SELF_ADOPT_EPOCH_MS,
+  normalizeForkUpdateBranch,
   observeUpdaterHandoff,
+  PRODUCTION_UPDATE_BRANCH,
   resolvePosixScriptHandoff,
   resolveStagedUpdaterBinary,
   resolveUpdateScriptHandoff,
   sandboxFallbackFromEnv,
   spawnUpdaterProcess,
   stagedUpdaterSupportsPrewrittenMarker,
+  windowsCliWrapperPath,
+  windowsManualUpdateCommand,
   wrapHandoffForDetachedConsole
 } from './updater-process'
 
@@ -187,7 +191,7 @@ test('resolveUpdateScriptHandoff prefers the repo script on Windows when present
   assert.deepEqual(handoff.args, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', expected])
 })
 
-test('resolveUpdateScriptHandoff falls back to the pre-reorg flat path', () => {
+test('resolveUpdateScriptHandoff rejects a legacy forwarder whose canonical target is missing', () => {
   const root = String.raw`C:\Users\hermes\AppData\Local\hermes\hermes-agent`
   const legacy = path.join(root, 'scripts', 'desktop-update.ps1')
 
@@ -196,8 +200,26 @@ test('resolveUpdateScriptHandoff falls back to the pre-reorg flat path', () => {
     fileExists: candidate => candidate === legacy
   })
 
-  assert.ok(handoff)
-  assert.equal(handoff.scriptPath, legacy)
+  assert.equal(handoff, null)
+})
+
+test('Windows manual update uses the safe wrapper and keeps the branch pin', () => {
+  const root = String.raw`C:\Users\hermes\AppData\Local\hermes\hermes-agent`
+  const wrapper = path.join(root, 'bin', 'hermes.cmd')
+
+  assert.equal(windowsCliWrapperPath(root), wrapper)
+  assert.equal(
+    windowsManualUpdateCommand(root, 'production-v2026.8.16'),
+    `"${wrapper}" update --branch production-v2026.8.16`
+  )
+})
+
+test('fork update policy maps empty and main to the production lane', () => {
+  assert.equal(PRODUCTION_UPDATE_BRANCH, 'production-v2026.8.16')
+  assert.equal(normalizeForkUpdateBranch(), PRODUCTION_UPDATE_BRANCH)
+  assert.equal(normalizeForkUpdateBranch('main'), PRODUCTION_UPDATE_BRANCH)
+  assert.equal(normalizeForkUpdateBranch('  main  '), PRODUCTION_UPDATE_BRANCH)
+  assert.equal(normalizeForkUpdateBranch('release/candidate'), 'release/candidate')
 })
 
 test('resolveUpdateScriptHandoff returns null when the checkout predates the script', () => {

@@ -20,6 +20,15 @@ export interface UpdateScriptHandoff {
   scriptPath: string
 }
 
+/** Update lane owned by the production fork. Never silently drift to main. */
+export const PRODUCTION_UPDATE_BRANCH = 'production-v2026.8.16'
+
+export function normalizeForkUpdateBranch(branch?: string | null): string {
+  const requested = String(branch || '').trim()
+
+  return !requested || requested === 'main' ? PRODUCTION_UPDATE_BRANCH : requested
+}
+
 /**
  * Repo-owned Windows update hand-off (frozen-binary escape hatch).
  *
@@ -31,9 +40,10 @@ export interface UpdateScriptHandoff {
  * checkout instead: every `hermes update` refreshes the code that drives the
  * NEXT update, and only PowerShell itself is frozen.
  *
- * Returns the spawn recipe when the script exists in the checkout, or null
- * (caller falls back to the staged binary — old checkouts that predate the
- * script keep working unchanged). Windows-only by the same policy as
+ * Returns the spawn recipe only when the canonical script exists, or null
+ * (caller falls back to the staged binary/manual route). The legacy flat path
+ * is intentionally excluded because current checkouts ship it as a forwarder.
+ * Windows-only by the same policy as
  * resolveStagedUpdaterBinary: POSIX updates in place via
  * applyUpdatesPosixInApp and needs no hand-off at all.
  */
@@ -49,23 +59,30 @@ export function resolveUpdateScriptHandoff(
 
   const exists = deps.fileExists ?? stagedFileExists
 
-  // Current layout first, then the pre-reorg flat path — an updated asar can
-  // meet a checkout from either side of the move (the checkout also ships a
-  // forwarder at the legacy path for the inverse skew).
-  for (const candidate of [
-    path.join(updateRoot, 'scripts', 'desktop-update', 'windows.ps1'),
-    path.join(updateRoot, 'scripts', 'desktop-update.ps1')
-  ]) {
-    if (exists(candidate)) {
-      return {
-        command: 'powershell',
-        args: ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', candidate],
-        scriptPath: candidate
-      }
-    }
+  // The flat scripts/desktop-update.ps1 path is only a compatibility
+  // forwarder. Accepting it when the canonical target was quarantined is a
+  // false positive that makes Desktop quit without starting an updater.
+  const scriptPath = path.join(updateRoot, 'scripts', 'desktop-update', 'windows.ps1')
+
+  if (!exists(scriptPath)) {
+    return null
   }
 
-  return null
+  return {
+    command: 'powershell',
+    args: ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath],
+    scriptPath
+  }
+}
+
+/** Stable Windows CLI route that bypasses blocked console-script executables. */
+export function windowsCliWrapperPath(installRoot: string): string {
+  return path.join(installRoot, 'bin', 'hermes.cmd')
+}
+
+/** Human-runnable, branch-pinned recovery command for a failed hand-off. */
+export function windowsManualUpdateCommand(installRoot: string, branch: string): string {
+  return `"${windowsCliWrapperPath(installRoot)}" update --branch ${branch}`
 }
 
 /**

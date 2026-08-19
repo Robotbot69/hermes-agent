@@ -2994,11 +2994,29 @@ function Set-PathVariable {
         # path, so they work from any location and survive updates.)
         $hermesBin = "$InstallDir\bin"
         New-Item -ItemType Directory -Force -Path $hermesBin | Out-Null
-        foreach ($launcher in @("hermes.exe", "hermes-acp.exe")) {
+        foreach ($launcher in @("hermes-acp.exe")) {
             $src = "$InstallDir\venv\Scripts\$launcher"
             if (Test-Path $src) {
                 Copy-Item -Force $src "$hermesBin\$launcher"
             }
+        }
+
+        # Prefer a transparent batch wrapper for the primary CLI. Windows
+        # Application Control can deny uv/distlib's generated hermes.exe while
+        # still allowing the exact same module through the managed python.exe.
+        # Keeping the wrapper in the dedicated PATH directory also prevents
+        # Hermes' Python runtime from shadowing the user's global `python`.
+        $wrapperSource = Join-Path $InstallDir "scripts\windows\hermes.cmd"
+        if (-not (Test-Path -LiteralPath $wrapperSource)) {
+            throw "Windows CLI wrapper missing: $wrapperSource"
+        }
+        Copy-Item -LiteralPath $wrapperSource -Destination "$hermesBin\hermes.cmd" -Force
+
+        # .EXE precedes .CMD in PATHEXT. Remove only the installer-generated
+        # global copy; leave venv\Scripts\hermes.exe intact for compatibility.
+        $staleGlobalExe = Join-Path $hermesBin "hermes.exe"
+        if (Test-Path -LiteralPath $staleGlobalExe) {
+            Remove-Item -LiteralPath $staleGlobalExe -Force
         }
     }
     
