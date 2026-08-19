@@ -36,9 +36,10 @@ export function normalizeForkUpdateBranch(branch?: string | null): string {
  * updater-side fix only reaches users when a new binary is built, signed and
  * published — which historically lags main by months and strands users on
  * long-fixed bugs (cache resolver #67369, marker self-adopt #74782; the
- * 2026-08-09 incident chain). `scripts/desktop-update/windows.ps1` lives in the repo
- * checkout instead: every `hermes update` refreshes the code that drives the
- * NEXT update, and only PowerShell itself is frozen.
+ * 2026-08-09 incident chain). When the canonical
+ * `scripts/desktop-update/windows.ps1` helper is present, the checkout owns
+ * the next update. This production fork intentionally allows that helper to
+ * be absent: Desktop must then stay alive and surface the safe CLI wrapper.
  *
  * Returns the spawn recipe only when the canonical script exists, or null
  * (caller falls back to the staged binary/manual route). The legacy flat path
@@ -59,9 +60,9 @@ export function resolveUpdateScriptHandoff(
 
   const exists = deps.fileExists ?? stagedFileExists
 
-  // The flat scripts/desktop-update.ps1 path is only a compatibility
-  // forwarder. Accepting it when the canonical target was quarantined is a
-  // false positive that makes Desktop quit without starting an updater.
+  // Never accept the retired flat forwarder. When the canonical target is
+  // absent or quarantined, returning null keeps Desktop on its recoverable
+  // staged/manual path instead of quitting without a live updater.
   const scriptPath = path.join(updateRoot, 'scripts', 'desktop-update', 'windows.ps1')
 
   if (!exists(scriptPath)) {

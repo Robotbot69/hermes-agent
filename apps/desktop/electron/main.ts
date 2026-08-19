@@ -3509,14 +3509,12 @@ async function applyUpdates(opts: { stopSafeBlockers?: boolean } = {}) {
     // Detached so the updater outlives this process — it needs us GONE before
     // `hermes update` will run (the venv shim is locked while we live).
     //
-    // Prefer the repo-owned hand-off script over the staged Tauri binary.
-    // The staged binary is frozen (no self-update path) and historically runs
-    // months-stale updater logic — pre-#67369 cache resolver, pre-#74782
-    // marker adoption — producing failures that were fixed on main long ago
-    // (2026-08-09 incident). scripts/desktop-update/windows.ps1 ships WITH the
-    // checkout, so each `hermes update` refreshes the code that drives the
-    // next one. Checkouts that predate the script fall back to the binary
-    // path unchanged.
+    // Prefer the canonical repo-owned hand-off when a checkout provides it.
+    // The staged Tauri binary is frozen (no self-update path), while this
+    // production fork intentionally omits the PowerShell helper quarantined
+    // by endpoint protection. CLI installs resolve that absence to the safe,
+    // branch-pinned manual wrapper before any shutdown; installer-managed
+    // checkouts may still use a staged updater when one is present.
     const scriptHandoff = resolveUpdateScriptHandoff(updateRoot)
     let child
 
