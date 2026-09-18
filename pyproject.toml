@@ -428,6 +428,8 @@ override-dependencies = [
   # requests with RSA and AES, and that API did not break in 49 or 50.
   # Remove this line when alibabacloud-tea-openapi lifts the cap.
   "cryptography>=50,<51",
+    "httpx2>=2.12.0,<3",
+    "httpcore2>=2.12.0,<3",
 ]
 exclude-newer = "14 days"
 # h2: temporary exclude-newer exception for the CVE-2026-71554 (GHSA-6hr6-w5qg-qmwg,
@@ -478,6 +480,8 @@ exclude-newer = "14 days"
 # environment resolves under the same cutoff ("Failed to resolve
 # requirements from build-system.requires ... maturin>=1.9,<2").
 [tool.uv.exclude-newer-package]
+# Security fixes for GHSA-7mj9-2mp8-4m2p and related HTTPX2 advisories.
+httpcore2 = false
 agent-client-protocol = false
 ai-edge-litert = false
 aiohttp = false
