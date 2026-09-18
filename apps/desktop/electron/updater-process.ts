@@ -1,8 +1,29 @@
 import { spawn, type SpawnOptions } from 'node:child_process'
-import { statSync } from 'node:fs'
+import { existsSync, statSync } from 'node:fs'
 import path from 'node:path'
 
 import { hiddenWindowsChildOptions } from './windows-child-options'
+
+/** File prerequisites only: dependency recovery must remain reachable through update. */
+export function windowsUpdatePrerequisiteError(updateRoot: string): string | null {
+  const maintainedDir = path.join(updateRoot, 'scripts', 'desktop-update')
+  const required = [path.join(updateRoot, 'venv', 'Scripts', 'python.exe')]
+
+  // Pre-reorg flat scripts remain supported; damaged modern trees do not.
+  if (existsSync(maintainedDir)) {
+    required.push(path.join(maintainedDir, 'windows.ps1'))
+  }
+
+  for (const candidate of required) {
+    if (stagedFileExists(candidate)) {
+      continue
+    }
+
+    return `Update aborted: ${candidate} is missing or unreadable. Repair the installation and review antivirus quarantine before retrying.`
+  }
+
+  return null
+}
 
 export interface UpdaterChild {
   pid?: number
@@ -21,12 +42,12 @@ export interface UpdateScriptHandoff {
 }
 
 /** Update lane owned by the production fork. Never silently drift to main. */
-export const PRODUCTION_UPDATE_BRANCH = 'production-v2026.8.16'
+export const PRODUCTION_UPDATE_BRANCH = 'production-v2026.9.14'
 
 export function normalizeForkUpdateBranch(branch?: string | null): string {
   const requested = String(branch || '').trim()
 
-  return !requested || requested === 'main' ? PRODUCTION_UPDATE_BRANCH : requested
+  return !requested || requested === 'main' || /^production-v2026\.8\./.test(requested) ? PRODUCTION_UPDATE_BRANCH : requested
 }
 
 /**

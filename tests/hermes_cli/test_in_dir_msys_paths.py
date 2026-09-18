@@ -55,7 +55,10 @@ class TestInDirMsysResolution:
                 "tools.environments.local._msys_to_windows_path",
                 return_value=str(target),
             ) as translate:
-                assert main_mod._apply_in_dir("/c/Users/alice/project") is True
+                from types import SimpleNamespace
+                args = SimpleNamespace(in_dir="/c/Users/alice/project")
+                main_mod._apply_in_dir(args)
+                assert args.no_restore_cwd is True
                 assert os.getcwd() == str(target.resolve())
         finally:
             os.chdir(start)

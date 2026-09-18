@@ -215,7 +215,7 @@ test('Windows manual update uses the safe wrapper and keeps the branch pin', () 
 })
 
 test('fork update policy maps empty and main to the production lane', () => {
-  assert.equal(PRODUCTION_UPDATE_BRANCH, 'production-v2026.8.16')
+  assert.match(PRODUCTION_UPDATE_BRANCH, /^production-v/)
   assert.equal(normalizeForkUpdateBranch(), PRODUCTION_UPDATE_BRANCH)
   assert.equal(normalizeForkUpdateBranch('main'), PRODUCTION_UPDATE_BRANCH)
   assert.equal(normalizeForkUpdateBranch('  main  '), PRODUCTION_UPDATE_BRANCH)

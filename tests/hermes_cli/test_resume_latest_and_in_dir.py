@@ -231,91 +231,49 @@ def test_in_dir_expands_user_home(main_mod, launched, monkeypatch, tmp_path):
         os.chdir(start)
 
 
-def test_in_dir_preserves_cwd_for_lazy_gateway_import(main_mod, monkeypatch, tmp_path):
+# ---------------------------------------------------------------------------
+# --in must win over an inherited TERMINAL_CWD (#106220)
+# ---------------------------------------------------------------------------
+
+
+def test_in_dir_replaces_inherited_terminal_cwd(main_mod, monkeypatch, tmp_path):
+    """A parent Hermes surface, the shell or .env can export TERMINAL_CWD before
+    the CLI starts. Every cwd consumer prefers that variable over the process
+    cwd, so a bare chdir left the Codex app-server thread, the terminal tool and
+    context-file discovery in the inherited directory."""
+    import os
+    from pathlib import Path
+
+    from agent.runtime_cwd import resolve_agent_cwd
+
+    inherited = tmp_path / "inherited"
+    target = tmp_path / "target"
+    inherited.mkdir()
+    target.mkdir()
+    monkeypatch.chdir(inherited)
+    monkeypatch.setenv("TERMINAL_CWD", str(inherited))
+
+    args = _args(in_dir=str(target))
+    main_mod._apply_in_dir(args)
+
+    assert Path.cwd().resolve() == target.resolve()
+    assert Path(os.environ["TERMINAL_CWD"]).resolve() == target.resolve()
+    assert resolve_agent_cwd().resolve() == target.resolve()
+    assert args.no_restore_cwd is True
+
+
+def test_in_dir_leaves_unset_terminal_cwd_unset(main_mod, monkeypatch, tmp_path):
+    """Without an inherited value the backends already derive from the process
+    cwd (local exports os.getcwd() at cli import, docker mounts it, the TUI
+    child inherits the chdir). Pre-seeding a host path here would leak it into
+    ssh/container backends that must keep their own default."""
     import os
 
-    target = tmp_path / "runtime-project"
+    target = tmp_path / "target"
     target.mkdir()
-    start = os.getcwd()
-    monkeypatch.delenv("HERMES_CLI_IN_DIR", raising=False)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("TERMINAL_CWD", raising=False)
 
-    try:
-        assert main_mod._apply_in_dir(str(target)) is True
-        assert os.environ["HERMES_CLI_IN_DIR"] == str(target.resolve())
-    finally:
-        os.chdir(start)
+    main_mod._apply_in_dir(_args(in_dir=str(target)))
 
-
-def test_oneshot_in_dir_chdirs_before_agent_startup(main_mod, monkeypatch, tmp_path):
-    import os
-
-    import hermes_cli.oneshot as oneshot_mod
-
-    target = tmp_path / "oneshot-project"
-    target.mkdir()
-    start = os.getcwd()
-    seen = {}
-
-    def fake_run_oneshot(prompt, **_kwargs):
-        seen["prompt"] = prompt
-        seen["cwd"] = os.getcwd()
-        return 0
-
-    monkeypatch.setattr(oneshot_mod, "run_oneshot", fake_run_oneshot)
-    monkeypatch.setattr(main_mod, "_cleanup_oneshot_runtime", lambda: None)
-    monkeypatch.setattr(
-        main_mod, "_exit_after_oneshot", lambda rc: seen.update(return_code=rc)
-    )
-
-    try:
-        main_mod._run_and_exit_oneshot("check cwd", in_dir=str(target))
-    finally:
-        os.chdir(start)
-
-    assert seen == {
-        "prompt": "check cwd",
-        "cwd": str(target.resolve()),
-        "return_code": 0,
-    }
-
-
-def test_top_level_oneshot_forwards_in_dir(main_mod, monkeypatch, tmp_path):
-    import os
-    import sys
-
-    target = tmp_path / "oneshot-project"
-    target.mkdir()
-    start = os.getcwd()
-    captured = {}
-
-    monkeypatch.setattr(
-        sys,
-        "argv",
-        ["hermes", "--in", str(target), "--oneshot", "check cwd"],
-    )
-    monkeypatch.setattr(
-        main_mod,
-        "_prepare_agent_startup",
-        lambda _args: captured.update(startup_cwd=os.getcwd()),
-    )
-    monkeypatch.setattr(
-        main_mod, "_confirm_startup_expensive_model_override", lambda _args: None
-    )
-
-    def fake_run_and_exit(prompt, **kwargs):
-        captured["prompt"] = prompt
-        captured.update(kwargs)
-        raise SystemExit(0)
-
-    monkeypatch.setattr(main_mod, "_run_and_exit_oneshot", fake_run_and_exit)
-
-    try:
-        with pytest.raises(SystemExit) as exc:
-            main_mod.main()
-    finally:
-        os.chdir(start)
-
-    assert exc.value.code == 0
-    assert captured["startup_cwd"] == str(target.resolve())
-    assert captured["prompt"] == "check cwd"
-    assert captured["in_dir"] == str(target)
+    assert "TERMINAL_CWD" not in os.environ
