@@ -41,10 +41,10 @@ class TestClassifySandboxMirrorTarget:
         result = classify_sandbox_mirror_target(str(target))
         assert result is not None
         assert result["target_path"] == str(target.resolve())
-        assert result["mirror_root"].endswith(
+        assert Path(result["mirror_root"]).as_posix().endswith(
             "sandboxes/docker/default/home/.hermes"
         )
-        assert result["inner_path"] == "profiles/group1/SOUL.md"
+        assert Path(result["inner_path"]).as_posix() == "profiles/group1/SOUL.md"
 
     @pytest.mark.parametrize(
         "backend,inner",
@@ -68,7 +68,7 @@ class TestClassifySandboxMirrorTarget:
 
         result = classify_sandbox_mirror_target(str(target))
         assert result is not None
-        assert result["inner_path"] == inner
+        assert Path(result["inner_path"]).as_posix() == inner
         assert backend in result["mirror_root"]
 
 
@@ -106,6 +106,7 @@ class TestGetSandboxMirrorWarning:
 
         warn = get_sandbox_mirror_warning(str(target))
         assert warn is not None
+        warn = warn.replace(chr(92), "/")
         # Must name the mirror root so the user can locate the sandbox.
         assert "sandboxes/docker/default/home/.hermes" in warn
         # Must hint at what the agent likely meant.
