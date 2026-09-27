@@ -17,6 +17,8 @@ import pytest
 
 pytestmark = pytest.mark.windows_only
 SCRIPT = Path(__file__).resolve().parents[3] / "scripts/desktop-update/windows.ps1"
+if not SCRIPT.is_file():
+    pytest.skip("Legacy PowerShell updater is not shipped in this fork", allow_module_level=True)
 
 
 @contextmanager

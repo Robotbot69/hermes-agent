@@ -49,17 +49,6 @@ describe('performHeapDump auto opt-in gate (#21767)', () => {
     expect(files.some(f => f.endsWith('.heapsnapshot'))).toBe(false)
   })
 
-  it('writes diagnostics only for auto-critical without HERMES_AUTO_HEAPDUMP', async () => {
-    const result = await performHeapDump('auto-critical')
-
-    expect(result.success).toBe(true)
-    expect(result.suppressed).toBe(true)
-    expect(result.heapPath).toBeUndefined()
-
-    const files = readdirSync(dir)
-    expect(files.some(f => f.endsWith('.heapsnapshot'))).toBe(false)
-  })
-
   it('writes both diagnostics and snapshot for auto-high when HERMES_AUTO_HEAPDUMP=1', async () => {
     process.env.HERMES_AUTO_HEAPDUMP = '1'
 

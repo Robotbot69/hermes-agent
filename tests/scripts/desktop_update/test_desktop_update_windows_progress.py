@@ -24,6 +24,8 @@ pytestmark = pytest.mark.windows_only
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 WINDOWS_UPDATE_PS1 = REPO_ROOT / "scripts" / "desktop-update" / "windows.ps1"
+if not WINDOWS_UPDATE_PS1.is_file():
+    pytest.skip("Legacy PowerShell updater is not shipped in this fork", allow_module_level=True)
 
 
 def _read_progress(url: str, deadline: float) -> dict[str, object]:

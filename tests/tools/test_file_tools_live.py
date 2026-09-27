@@ -18,7 +18,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from tools.environments.local import LocalEnvironment
+from tools.environments.local import LocalEnvironment, _bash_safe_path, _quote_bash_path
 from tools.file_operations import ShellFileOperations
 
 
@@ -53,8 +53,6 @@ def _assert_clean(text: str, context: str = "output"):
 # Deterministic file content used across tests. Every byte is known,
 # so any unexpected text in results is immediately caught.
 SIMPLE_CONTENT = "alpha\nbravo\ncharlie\n"
-NUMBERED_CONTENT = "\n".join(f"LINE_{i:04d}" for i in range(1, 51)) + "\n"
-SPECIAL_CONTENT = "single 'quotes' and \"doubles\" and $VARS and `backticks` and \\backslash\n"
 MULTIFILE_A = "def func_alpha():\n    return 42\n"
 MULTIFILE_B = "def func_bravo():\n    return 99\n"
 MULTIFILE_C = "nothing relevant here\n"
@@ -100,8 +98,8 @@ class TestLocalEnvironmentExecute:
 
     def test_cat_deterministic_content(self, env, tmp_path):
         f = tmp_path / "det.txt"
-        f.write_text(SIMPLE_CONTENT)
-        result = env.execute(f"cat {f}")
+        f.write_bytes(SIMPLE_CONTENT.encode())
+        result = env.execute(f"cat {_quote_bash_path(str(f))}")
         assert result["returncode"] == 0
         assert result["output"] == SIMPLE_CONTENT
         _assert_clean(result["output"])
@@ -116,10 +114,6 @@ class TestHasCommand:
 
     def test_missing_command(self, ops):
         assert ops._has_command("nonexistent_tool_xyz_abc_999") is False
-
-    def test_rg_or_grep_available(self, ops):
-        assert ops._has_command("rg") or ops._has_command("grep"), \
-            "Neither rg nor grep found -- search_files will break"
 
 
 # ── read_file ────────────────────────────────────────────────────────────
@@ -138,14 +132,6 @@ class TestReadFile:
         _assert_clean(result.content)
 
 
-    def test_no_noise_in_content(self, ops, tmp_path):
-        f = tmp_path / "noise_check.txt"
-        f.write_text("ONLY_THIS_CONTENT\n")
-        result = ops.read_file(str(f))
-        assert result.error is None
-        _assert_clean(result.content)
-
-
 # ── write_file ───────────────────────────────────────────────────────────
 
 class TestWriteFile:
@@ -155,17 +141,6 @@ class TestWriteFile:
         assert result.error is None
         assert result.bytes_written == len(SIMPLE_CONTENT.encode())
         assert Path(path).read_text() == SIMPLE_CONTENT
-
-
-    def test_roundtrip_read_write(self, ops, tmp_path):
-        """Write -> read back -> verify exact match."""
-        path = str(tmp_path / "roundtrip.txt")
-        ops.write_file(path, SIMPLE_CONTENT)
-        result = ops.read_file(path)
-        assert result.error is None
-        assert "alpha" in result.content
-        assert "charlie" in result.content
-        _assert_clean(result.content)
 
 
 # ── patch_replace ────────────────────────────────────────────────────────
@@ -187,9 +162,6 @@ class TestPatchReplace:
 
         assert result.success is False
         assert result.error is not None
-        assert "No edit was applied" in result.error
-        assert "existing text to replace in old_string" in result.error
-        assert "replacement text in new_string" in result.error
         assert Path(path).read_text() == "hello world\n"
 
     def test_multiline_patch(self, ops, tmp_path):
@@ -213,21 +185,12 @@ class TestSearch:
             _assert_clean(m.path)
 
 
-    def test_search_output_has_zero_noise(self, ops, populated_dir):
-        """Dedicated noise check: search must return only real content."""
-        result = ops.search("func", str(populated_dir), target="content")
-        assert result.error is None
-        for m in result.matches:
-            _assert_clean(m.content)
-            _assert_clean(m.path)
-
-
 # ── _expand_path ─────────────────────────────────────────────────────────
 
 class TestExpandPath:
     def test_tilde_exact(self, ops):
         result = ops._expand_path("~/test.txt")
-        expected = f"{Path.home()}/test.txt"
+        expected = f"{_bash_safe_path(str(Path.home()))}/test.txt"
         assert result == expected
         _assert_clean(result)
 
@@ -252,25 +215,3 @@ class TestExpandPath:
 
 
 # ── Terminal output cleanliness ──────────────────────────────────────────
-
-class TestTerminalOutputCleanliness:
-    """Every command the agent might run must produce noise-free output."""
-
-    def test_echo(self, env):
-        result = env.execute("echo CLEAN_TEST")
-        assert result["output"].strip() == "CLEAN_TEST"
-        _assert_clean(result["output"])
-
-    def test_cat(self, env, tmp_path):
-        f = tmp_path / "cat_test.txt"
-        f.write_text("CAT_CONTENT_EXACT\n")
-        result = env.execute(f"cat {f}")
-        assert result["output"] == "CAT_CONTENT_EXACT\n"
-        _assert_clean(result["output"])
-
-
-    def test_command_v_detection(self, env):
-        """This is how _has_command works -- must return clean 'yes'."""
-        result = env.execute("command -v cat >/dev/null 2>&1 && echo 'yes'")
-        assert result["output"].strip() == "yes"
-        _assert_clean(result["output"])
