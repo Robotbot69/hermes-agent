@@ -490,4 +490,6 @@ urllib.request.build_opener = local_build
     })
     fs.rmSync(temporary, { recursive: true, force: true })
   }
-}, 30000)
+// This fixture starts many native Git/Python processes; Windows startup and
+// endpoint scanning can exceed 30 seconds even when every request completes.
+}, 120000)
