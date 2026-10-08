@@ -11,7 +11,7 @@
     "tests-js"
   ],
   "scripts": {
-    "postinstall": "echo '✅ Node dependencies installed. Run: python run_agent.py --help'",
+    "postinstall": "echo '\u00e2\u015b\u2026 Node dependencies installed. Run: python run_agent.py --help'",
     "install:root": "npm install --workspaces=false",
     "install:web": "npm install --workspace web",
     "install:tui": "npm install --workspace ui-tui",
@@ -36,29 +36,36 @@
   "homepage": "https://github.com/NousResearch/Hermes-Agent#readme",
   "devDependencies": {
     "@eslint/js": "9.39.5",
-    "typescript-eslint": "8.64.0",
     "eslint-plugin-perfectionist": "5.10.0",
     "eslint-plugin-react-hooks": "7.1.1",
     "eslint-plugin-unused-imports": "4.4.1",
-    "globals": "17.7.0"
+    "globals": "17.7.0",
+    "typescript-eslint": "8.64.0"
   },
   "overrides": {
-    "dompurify": "3.4.13",
-    "fast-uri": "3.1.7",
-    "js-yaml": "4.3.2",
-    "mermaid": "11.16.1",
+    "@electron/osx-sign": {
+      "isbinaryfile": "5.0.7"
+    },
     "lodash": "4.18.1",
     "yauzl": "^3.3.1",
     "protobufjs": "^8.7.1",
-    "brace-expansion": "5.0.9",
-    "ip-address": "10.3.1",
+    "brace-expansion": "5.0.12",
+    "mermaid": "11.16.1",
+    "dompurify": "3.4.16",
+    "ip-address": "10.7.3",
     "nanoid@^3": "3.3.18",
     "nanoid@^6": "6.0.0",
     "js-yaml@^4": "4.3.2",
-    "undici@^6": "6.28.0",
+    "undici@^6": "6.29.0",
     "undici@^7": "7.29.0",
     "postcss": "8.5.23",
-    "tar": "7.5.22"
+    "tar": "7.5.22",
+    "fast-uri": "3.1.7",
+    "js-yaml": "4.3.2",
+    "http-cache-semantics": "4.3.0",
+    "source-map-js": "1.2.2",
+    "postcss-selector-parser": "7.1.6",
+    "yaml": "2.9.1"
   },
   "engines": {
     "node": "^22.22.0 || ^24.11.0 || >=26.0.0",
@@ -69,9 +76,13 @@
     "esbuild@0.28.1": true,
     "node-pty@1.1.0": true,
     "electron-winstaller@5.4.0": true,
-    "electron@41.10.3": true,
     "fsevents@2.3.2": true,
     "fsevents@2.3.3": true,
-    "get-windows@9.3.0": true
+    "get-windows@9.3.0": true,
+    "electron@41.10.3": true
+  },
+  "dependencies": {
+    "js-yaml": "4.3.2",
+    "semver": "7.7.4"
   }
 }
