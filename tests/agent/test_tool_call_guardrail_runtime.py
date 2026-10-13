@@ -463,14 +463,7 @@ def test_default_run_conversation_warns_without_guardrail_halt():
 
 
 
-def test_guardrail_halt_emits_final_response_through_stream_delta_callback():
-    """Regression for #30770: when the guardrail halts the loop, the
-    synthesized halt message must be pushed through ``stream_delta_callback``
-    so SSE/TUI clients see why the agent stopped instead of a silent stream
-    close.  Without this the chat-completions SSE writer drains an empty
-    queue and emits a finish chunk with zero content (indistinguishable
-    from a crash for Open WebUI and similar clients).
-    """
+def test_guardrail_halt_allows_one_toolless_final_response():
     agent = _make_agent("web_search", max_iterations=10, config=_hard_stop_config())
     same_args = {"query": "same"}
     responses = [
@@ -479,8 +472,15 @@ def test_guardrail_halt_emits_final_response_through_stream_delta_callback():
             finish_reason="tool_calls",
             tool_calls=[_mock_tool_call("web_search", json.dumps(same_args), f"c{i}")],
         )
-        for i in range(1, 10)
+        for i in range(1, 4)
     ]
+    responses.append(
+        _mock_response(
+            content="I could not finish the search with the available results.",
+            finish_reason="stop",
+            tool_calls=None,
+        )
+    )
     agent.client.chat.completions.create.side_effect = responses
 
     deltas: list = []
@@ -499,14 +499,8 @@ def test_guardrail_halt_emits_final_response_through_stream_delta_callback():
     ):
         result = agent.run_conversation("search repeatedly")
 
-    assert result["turn_exit_reason"] == "guardrail_halt"
-    halt_text = result["final_response"]
-    assert halt_text
-
-    # The halt message must have been pushed through the callback at least
-    # once.  Empty-queue SSE writers were the bug — clients saw no content
-    # delta before the finish chunk.
-    text_deltas = [d for d in deltas if isinstance(d, str)]
-    assert halt_text in text_deltas, (
-        f"halt message was never streamed; callback only saw {deltas!r}"
-    )
+    assert result["turn_exit_reason"].startswith("text_response")
+    assert result["final_response"].startswith("I could not finish")
+    assert agent.client.chat.completions.create.call_count == 4
+    final_request = agent.client.chat.completions.create.call_args_list[-1].kwargs
+    assert not final_request.get("tools")

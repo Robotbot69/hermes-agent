@@ -81,7 +81,8 @@ RUN_BUDGET_WRAPUP_NOTICE = (
 
 
 def _midturn_request_pressure_tokens(
-    agent: Any, api_messages: list[dict[str, Any]], effective_system: str, approx_tokens: int
+    agent: Any, api_messages: list[dict[str, Any]], effective_system: str, approx_tokens: int,
+    tools: Optional[list[dict[str, Any]]] = None,
 ) -> int:
     """Token figure the mid-turn pre-API compression guard compares: the pruned
     native-Responses estimate when native compaction eligibility is proven (the generic
@@ -97,7 +98,7 @@ def _midturn_request_pressure_tokens(
         from agent.codex_responses_adapter import estimate_native_responses_preflight_tokens
         native = estimate_native_responses_preflight_tokens(
             agent, api_messages, system_prompt=effective_system or "",
-            tools=getattr(agent, "tools", None) or None,
+            tools=tools if tools is not None else (getattr(agent, "tools", None) or None),
         )
         if isinstance(native, int) and not isinstance(native, bool) and native >= 0:
             return native
@@ -106,7 +107,8 @@ def _midturn_request_pressure_tokens(
             "native Responses mid-turn estimate unavailable; using generic transcript estimate",
             exc_info=True,
         )
-    return approx_tokens + (_estimate_tools_tokens_rough(agent.tools) if agent.tools else 0)
+    active_tools = tools if tools is not None else getattr(agent, "tools", None)
+    return approx_tokens + (_estimate_tools_tokens_rough(active_tools) if active_tools else 0)
 
 
 def _review_input_budget_exhausted(agent: Any) -> bool:

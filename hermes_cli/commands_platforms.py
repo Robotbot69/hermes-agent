@@ -286,6 +286,14 @@ def telegram_menu_commands(max_commands: int = 100) -> tuple[list[tuple[str, str
     ``platforms.telegram.extra.command_menu.priority`` — applied *before* the cap, so a
     prioritized dynamic command can displace an unprioritized core command."""
     core_commands = list(telegram_bot_commands(include_plugins=False))
+    from hermes_cli.config import read_raw_config
+    quick_commands = (read_raw_config() or {}).get("quick_commands", {})
+    seen_names = {name for name, _ in core_commands}
+    for raw_name, entry in quick_commands.items() if isinstance(quick_commands, dict) else []:
+        name = _sanitize_telegram_name(str(raw_name))
+        if isinstance(entry, dict) and name and name not in seen_names:
+            core_commands.append((name, str(entry.get("description") or f"Run /{name}")))
+            seen_names.add(name)
     entries, hidden_count = _collect_gateway_skill_entries(
         platform="telegram", max_slots=None, reserved_names={n for n, _ in core_commands},
         desc_limit=40, sanitize_name=_sanitize_telegram_name)

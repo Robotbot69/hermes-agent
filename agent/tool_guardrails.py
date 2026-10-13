@@ -14,7 +14,7 @@ from dataclasses import asdict, dataclass, field, fields
 from typing import Any, Mapping
 
 from utils import safe_json_loads
-from agent.tool_result_classification import file_mutation_result_landed, is_guardrail_refusal
+from agent.tool_result_classification import file_mutation_result_landed, is_guardrail_refusal, structured_tool_failure
 
 
 IDEMPOTENT_TOOL_NAMES = frozenset({
@@ -237,6 +237,9 @@ def classify_tool_failure(tool_name: str, result: str | None) -> tuple[bool, str
         data = safe_json_loads(result)
         if isinstance(data, dict) and data.get("success") is False and "exceed the limit" in data.get("error", ""):
             return True, " [full]"
+    data = result if isinstance(result, (dict, list)) else safe_json_loads(result)
+    if isinstance(data, (dict, list)):
+        return (True, " [error]") if structured_tool_failure(data) else (False, "")
     lower = result[:500].lower()
     return (True, " [error]") if '"error"' in lower or '"failed"' in lower or result.startswith("Error") else (False, "")
 

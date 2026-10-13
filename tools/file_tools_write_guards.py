@@ -430,6 +430,10 @@ def _check_cross_profile_path(filepath: str, task_id: str = "default") -> str | 
         from agent.file_safety import get_container_mirror_warning, get_sandbox_mirror_warning
     except Exception:
         return None
+    mirror_prefix = _get_container_mirror_prefix_for_task(task_id)
+    warning = get_container_mirror_warning(filepath, mirror_prefix=mirror_prefix)
+    if warning is not None:
+        return warning
     resolved = _resolved_or_raw(filepath, task_id)
     warning = get_sandbox_mirror_warning(resolved)
     if warning is not None:

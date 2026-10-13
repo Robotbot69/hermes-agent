@@ -3394,6 +3394,8 @@ def systemd_unit_is_current(system: bool = False) -> bool:
         return False
 
     installed = unit_path.read_text(encoding="utf-8-sig")
+    if "# Hermes-Unit-Management: operator" in installed:
+        return True
     expected_user = _read_systemd_user_from_unit(unit_path) if system else None
     expected = generate_systemd_unit(system=system, run_as_user=expected_user)
     # Ignore directives older systemd drops (RestartMaxDelaySec, RestartSteps) to avoid a perpetual "outdated" flag.

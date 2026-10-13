@@ -145,6 +145,8 @@ def assemble_api_request(
     api_messages = _apply_context_engine_selection(
         agent, api_messages, messages, _sel_incoming, logger=request_logger
     )
+    if getattr(agent, "_guardrail_final_only", False):
+        api_messages.append({"role": "user", "content": "[System: Tool use has stopped. Answer the user's request now using only the results already in the conversation. State any unresolved uncertainty.]"})
 
     # Context selection may replace the request with a fresh clone of canonical history.
     # Re-apply durable rejection suppression after that final replacement hook.
@@ -202,7 +204,7 @@ def assemble_api_request(
     # Build the request-local cache sections LAST, after every transcript mutation;
     # the canonical tool registry stays undecorated. Marked ``content`` becomes text
     # blocks the whitespace pass skips, so the same row's bytes vary across turns.
-    tools_for_api = agent.tools
+    tools_for_api = [] if getattr(agent, "_guardrail_final_only", False) else agent.tools
     if agent._use_prompt_caching and agent.provider != "moa":
         from agent.prompt_caching import envelope_tool_part_cache_markers_supported
 
@@ -264,7 +266,7 @@ def assemble_api_request(
     # overstates the wire by orders of magnitude on a compacted session and fires a 600s local compression
     # the main request never needed (#96995, mirroring the turn-prologue preflight #96644/#96155).
     request_pressure_tokens = _midturn_request_pressure_tokens(
-        agent, api_messages, effective_system or "", approx_tokens
+        agent, api_messages, effective_system or "", approx_tokens, tools_for_api
     )
     # Usage-anchored override: real prompt_tokens (incl. system + tool schemas) +
     # delta estimate replaces the whole-history heuristic when the anchor is fresh.

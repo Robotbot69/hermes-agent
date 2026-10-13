@@ -230,14 +230,17 @@ def _systemd_timeout_stop_us(unit_name: str) -> Optional[int]:
     for flag in (["--user"], []):
         try:
             result = subprocess.run(
-                ["systemctl", *flag, "show", unit_name, "--property=TimeoutStopUSec"],
+                ["systemctl", *flag, "show", unit_name, "--property=TimeoutStopUSec", "--property=LoadState"],
                 capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=2.0,
                 check=False,
             )
         except (subprocess.TimeoutExpired, OSError):
             continue
         # Output: "TimeoutStopUSec=1min 30s" or "TimeoutStopUSec=90000000"
-        for line in result.stdout.splitlines() if result.returncode == 0 else ():
+        lines = result.stdout.splitlines() if result.returncode == 0 else ()
+        if "LoadState=loaded" not in lines:
+            continue
+        for line in lines:
             if line.startswith("TimeoutStopUSec="):
                 value = line.split("=", 1)[1].strip()
                 timeout_us = int(value) if value.isdigit() else parse_systemd_duration_to_us(value)
@@ -281,4 +284,3 @@ def parse_systemd_duration_to_us(raw: str) -> Optional[int]:
         elif digits and not _flush():
             return None
     return total_us if total_us > 0 else None
-

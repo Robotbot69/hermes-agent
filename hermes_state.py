@@ -1025,7 +1025,10 @@ class SessionDB(
             # stable post-close state (identity cleared → adopt / reopen path).
             fn_started = False
             try:
-                with self._lock:
+                acquired = self._lock.acquire(timeout=max(0.0, deadline - time.monotonic()))
+                if not acquired:
+                    raise sqlite3.OperationalError("database is locked (another Hermes process or thread)")
+                try:
                     self._raise_if_db_replaced()
                     if self._conn is None:  # close() raced this writer
                         self._reopen_after_close_locked(context="write")
@@ -1040,6 +1043,8 @@ class SessionDB(
                         except Exception:
                             pass
                         raise
+                finally:
+                    self._lock.release()
                 # Success — periodic best-effort checkpoint + FTS merge.
                 self._write_count += 1
                 if self._write_count % self._CHECKPOINT_EVERY_N_WRITES == 0:
@@ -1078,8 +1083,8 @@ class SessionDB(
                         # a holder's argv (a worktree named fix-corrupt-db) would flip the bucket.
                         log_write_lock_holders(self.db_path, patience_s)
                         raise sqlite3.OperationalError(
-                            f"database is locked (another Hermes process held the "
-                            f"state.db write lock for over {patience_s:.0f}s — "
+                            f"database is locked (another Hermes process or thread held the "
+                            f"state DB write path for over {patience_s:.0f}s — "
                             "likely a long maintenance operation such as VACUUM, "
                             "a large WAL checkpoint, or an older pre-update "
                             "process; the database itself is healthy)"

@@ -20,7 +20,7 @@ def _eval_ssrf_guard_active(effective_task_id: str) -> bool:
     browser-on-host reaches networks the terminal can't); skipped for local sidecars / ``allow_private_urls``.
     """
     _bt = _origin()
-    return not _cloud._is_local_backend() and not _bt._is_local_sidecar_key(effective_task_id) and not _cloud._allow_private_urls()
+    return not _cloud._allow_private_urls() and (_bt._enforce_private_url_guard_on_local() or (not _cloud._is_local_backend() and not _bt._is_local_sidecar_key(effective_task_id)))
 
 
 def _url_blocked(_bt, url: str) -> bool:

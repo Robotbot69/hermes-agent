@@ -109,6 +109,27 @@ class TestTranscriptWritePatience:
         db.append_message(session_id="s2", role="user", content="fast")
         assert time.monotonic() - t0 < 5.0  # loose: no patience-length stall
 
+    def test_in_process_lock_is_bounded_by_patience(self, db, monkeypatch):
+        monkeypatch.setattr(SessionDB, "_WRITE_PATIENCE_S", 0.2)
+        started = threading.Event()
+        release = threading.Event()
+
+        def hold_python_lock():
+            with db._lock:
+                started.set()
+                release.wait(5.0)
+
+        holder = threading.Thread(target=hold_python_lock)
+        holder.start()
+        try:
+            assert started.wait(1.0)
+            with pytest.raises(sqlite3.OperationalError, match="process or thread"):
+                db.set_meta("k", "v")
+        finally:
+            release.set()
+            holder.join(timeout=2.0)
+        assert not holder.is_alive()
+
 
 class TestOpenLockPatience:
     def test_open_survives_multi_second_lock_hold(self, tmp_path):

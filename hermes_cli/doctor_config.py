@@ -10,6 +10,25 @@ from hermes_cli.doctor_report import (
 )
 
 
+def _has_oauth_provider_config() -> bool:
+    from importlib import import_module
+    for module_name, getter_name in (
+        ("hermes_cli.auth_nous", "get_nous_auth_status_local"),
+        ("hermes_cli.auth", "get_codex_auth_status"),
+        ("hermes_cli.auth", "get_minimax_oauth_auth_status"),
+        ("hermes_cli.auth", "get_xai_oauth_auth_status"),
+    ):
+        try:
+            getter = getattr(import_module(module_name), getter_name, None)
+            if getter is None:
+                continue
+            if (getter() or {}).get("logged_in"):
+                return True
+        except Exception:
+            continue
+    return False
+
+
 def _has_provider_env_config(content: str) -> bool:
     """Return True when ~/.hermes/.env contains provider auth/base URL settings."""
     from hermes_cli.doctor import _PROVIDER_ENV_HINTS
@@ -180,10 +199,12 @@ def _check_env_file(should_fix: bool, f: Finding) -> None:
             content = env_path.read_text(encoding="utf-8-sig")
         except UnicodeDecodeError:
             content = env_path.read_text(encoding="latin-1")
-        if not check_bool(_has_provider_env_config(content), "API key or custom endpoint configured", f"No API key found in {_DHH}/.env"):
+        if not check_bool(_has_provider_env_config(content) or _has_oauth_provider_config(), "API key or custom endpoint configured", f"No provider credentials found in {_DHH}/.env"):
             f.issues.append("Run 'hermes setup' to configure API keys")
     elif (PROJECT_ROOT / '.env').exists():  # project root as fallback
         check_ok(".env file exists (in project directory)")
+    elif _has_oauth_provider_config():
+        check_ok("OAuth provider configured; .env is not required")
     else:
         check_fail(f"{_DHH}/.env file missing")
         if should_fix:

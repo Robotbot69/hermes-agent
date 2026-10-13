@@ -596,6 +596,28 @@ class TestGatewaySkillCollector:
 class TestTelegramMenuCommands:
     """Integration: telegram_menu_commands enforces the 32-char limit."""
 
+    def test_quick_commands_are_visible_and_do_not_duplicate_core(self, tmp_path, monkeypatch):
+        from unittest.mock import patch
+
+        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        (tmp_path / "skills").mkdir()
+        quick = {
+            "limits": {"description": "Show limits"},
+            "help": {"description": "Duplicate core"},
+        }
+        with (
+            patch("hermes_cli.commands_platforms.telegram_bot_commands", return_value=[("help", "Help")]),
+            patch("hermes_cli.config.read_raw_config", return_value={"quick_commands": quick}),
+            patch("agent.skill_commands.get_skill_commands", return_value={}),
+            patch("hermes_cli.plugins.get_plugin_commands", return_value={}),
+            patch("tools.skills_tool.SKILLS_DIR", tmp_path / "skills"),
+        ):
+            menu, hidden = telegram_menu_commands(max_commands=100)
+
+        assert menu.count(("help", "Help")) == 1
+        assert ("limits", "Show limits") in menu
+        assert hidden == 0
+
 
     def test_external_dir_skills_included_in_telegram_menu(self, tmp_path, monkeypatch):
         """External skills (``skills.external_dirs``) must appear in the Telegram menu.

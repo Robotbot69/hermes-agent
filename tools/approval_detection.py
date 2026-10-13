@@ -300,6 +300,7 @@ DANGEROUS_PATTERNS = [
     (r'\bTRUNCATE\s+(TABLE)?\s*\w', "SQL TRUNCATE"),
     (rf'>\s*{_SYSTEM_CONFIG_PATH}', "overwrite system config"),
     (r'\bsystemctl\s+(-[^\s]+\s+)*(stop|restart|disable|mask)\b', "stop/restart system service"),
+    (r'\bcrontab\b(?![^\n;|&]*\s(?:-[a-z]*l[a-z]*|--list)\b)', "modify user crontab"),
     (r'\bkill\s+-9\s+-1\b', "kill all processes"),
     (r'\bpkill\s+-9\b', "force kill processes"),
     # killall with SIGKILL (-9 / -KILL / -s KILL / -SIGKILL) and `killall -r <regex>` broad sweeps
@@ -563,7 +564,7 @@ def _home_prefix_fold_regex(path: str):
     bare home is never folded. Returns ``None`` for an unset/degenerate path (fewer than two
     components: ``/``, ``C:\\``, ``""``) so a stray HOME cannot rewrite unrelated prefixes."""
     components = [c for c in re.split(r"[/\\]+", path) if c] if path else []
-    if len(components) < 2:
+    if len(components) < 2 and os.path.normpath(path) != "/root":
         return None
     # Optional leading root separator; a Windows drive letter is a component.
     return re.compile(r"[/\\]*" + r"[/\\]+".join(re.escape(c) for c in components) + _PATH_TAIL)

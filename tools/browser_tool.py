@@ -662,8 +662,8 @@ def _url_policy_error(url: str, *, auto_local: bool = False) -> Optional[dict]:
     # local Chromium on a cloud VM still reaches the host IMDS).
     if _is_always_blocked_url(url):
         return _err("Blocked: URL targets a cloud metadata endpoint")
-    if not local and not auto_local and not _cloud._allow_private_urls() and not _is_safe_url(url):
-        return _err("Blocked: URL targets a private or internal address")
+    if (_enforce_private_url_guard_on_local() or (not local and not auto_local)) and not _cloud._allow_private_urls() and not _is_safe_url(url):
+        return _err("Blocked: URL safety check failed (private or internal address, DNS failure, or invalid URL)")
     blocked = check_website_access(url)
     if blocked:
         return _err(blocked["message"],
@@ -694,6 +694,13 @@ _BOT_DETECTION_TITLE_PATTERNS = (
 )
 
 
+def _enforce_private_url_guard_on_local() -> bool:
+    from hermes_cli.config import read_raw_config
+    from utils import is_truthy_value
+    browser_cfg = (read_raw_config() or {}).get("browser", {})
+    return isinstance(browser_cfg, dict) and is_truthy_value(browser_cfg.get("enforce_private_url_guard_on_local"), default=False)
+
+
 def _post_redirect_block(nav_session_key: str, url: str, final_url: str, auto_local_this_nav: bool) -> Optional[str]:
     """Post-redirect SSRF check; blocked JSON payload or None. The page is moved to about:blank
     first so later snapshots can't read the internal content. The metadata floor fires for
@@ -704,12 +711,11 @@ def _post_redirect_block(nav_session_key: str, url: str, final_url: str, auto_lo
     if _is_always_blocked_url(final_url):
         what = "a cloud metadata endpoint"
     elif (
-        not _cloud._is_local_backend()
-        and not auto_local_this_nav
+        (_enforce_private_url_guard_on_local() or (not _cloud._is_local_backend() and not auto_local_this_nav))
         and not _cloud._allow_private_urls()
         and not _is_safe_url(final_url)
     ):
-        what = "a private/internal address"
+        what = "an unsafe URL (private/internal address, DNS failure, or invalid URL)"
     else:
         return None
     _session._run_browser_command(nav_session_key, "open", ["about:blank"], timeout=10)

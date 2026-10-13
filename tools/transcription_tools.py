@@ -431,7 +431,7 @@ def _read_block_error(file_path: str) -> Optional[dict[str, Any]]:
 
 
 def _transcribe_prepared_audio(
-    file_path: str, model: Optional[str] = None, source: Optional[str] = None) -> dict[str, Any]:
+    file_path: str, model: Optional[str] = None, source: Optional[str] = None, *, provider_override: Optional[str] = None) -> dict[str, Any]:
     """Transcribe a validated audio file with the configured STT provider. ``model`` overrides the
     config default; ``source`` is a caller-surface label (``"gateway"``, ``"voice_mode"``) forwarded
     to the ``pre_transcription`` hook only."""
@@ -443,7 +443,7 @@ def _transcribe_prepared_audio(
     stt_config = _load_stt_config()
     if not is_stt_enabled(stt_config):
         return _error_result("STT is disabled in config.yaml (stt.enabled: false).")
-    provider = _get_provider(stt_config)
+    provider = _get_provider({**stt_config, "provider": provider_override} if provider_override else stt_config)
     remote = not _is_local_stt_provider(provider, stt_config)
     with ExitStack() as cleanup:
         # Never overwrite a neighboring WAV or leave converted voice notes behind.
@@ -581,8 +581,24 @@ def transcribe_audio(
     if prep_error or prepared_path is None:
         return prep_error or _error_result("Audio preprocessing did not produce a file for transcription.")
     try:
-        return (_validate_audio_file(prepared_path, enforce_size_limit=False)
-                or _transcribe_prepared_audio(prepared_path, model, source))
+        error = _validate_audio_file(prepared_path, enforce_size_limit=False)
+        if error:
+            return error
+        result = _transcribe_prepared_audio(prepared_path, model, source)
+        stt_config = _load_stt_config()
+        seen = {str(stt_config.get("provider") or "").strip().lower()}
+        fallbacks = stt_config.get("fallback_providers", [])
+        for item in fallbacks if isinstance(fallbacks, (list, tuple)) else []:
+            if result.get("success"):
+                break
+            provider = str(item or "").strip().lower()
+            if not provider or provider in seen:
+                continue
+            seen.add(provider)
+            fallback = _transcribe_prepared_audio(prepared_path, model, source, provider_override=provider)
+            if fallback.get("success"):
+                result = fallback
+        return result
     finally:
         if cleanup_dir:
             shutil.rmtree(cleanup_dir, ignore_errors=True)

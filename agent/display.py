@@ -18,7 +18,7 @@ from urllib.parse import urlsplit
 from utils import safe_json_loads
 from agent.i18n import t
 from agent.redact import redact_sensitive_text
-from agent.tool_result_classification import file_mutation_result_landed, is_guardrail_refusal
+from agent.tool_result_classification import file_mutation_result_landed, is_guardrail_refusal, structured_tool_failure
 
 logger = logging.getLogger(__name__)
 
@@ -1028,8 +1028,10 @@ def _detect_tool_failure(tool_name: str, result: Any) -> tuple[bool, str]:
         if tool_name == "memory" and failed and "exceed the limit" in data.get("error", ""):
             return True, t("display.failure.memory_full")
         err = data.get("error") or data.get("message")
-        if err and (failed or "error" in data):
+        if err and (failed or data.get("error")):
             return True, f" [{_trim_error(str(err))}]"
+    if isinstance(data, (dict, list)):
+        return (True, t("display.failure.generic")) if structured_tool_failure(data) else (False, "")
     # Multimodal results (dicts) are successes; failures arrive as JSON-encoded strings.
     if isinstance(result, str) and (
         '"error"' in result[:500].lower() or '"failed"' in result[:500].lower() or result.startswith("Error")

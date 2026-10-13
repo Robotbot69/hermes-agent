@@ -502,7 +502,13 @@ def classify_container_mirror_target(path: str, mirror_prefix: str | None = None
     the bind mount strips the ``sandboxes/`` prefix (the agent sees plain ``/root/.hermes/…``),
     so the caller supplies ``mirror_prefix`` once it knows file tools run in a docker sandbox.
     ``None`` without a prefix or outside it, else ``target_path``/``mirror_root``/``inner_path``."""
-    target, mirror = _resolve_target(path), _resolve_target(mirror_prefix) if mirror_prefix else None
+    if not mirror_prefix:
+        return None
+    try:
+        target = Path(os.path.abspath(os.path.expanduser(str(path))))
+        mirror = Path(os.path.abspath(os.path.expanduser(mirror_prefix)))
+    except (OSError, ValueError):
+        return None
     if target is None or mirror is None or not _is_under(target, mirror):
         return None
     return _mirror_info(target, mirror, target.relative_to(mirror).as_posix())

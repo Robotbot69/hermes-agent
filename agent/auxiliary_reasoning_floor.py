@@ -90,6 +90,9 @@ def _catalog_marks_mandatory(provider: Optional[str], base_url: Optional[str], m
     process."""
     provider_norm = str(provider or "").strip().lower()
     host = (urlparse(base_url or "").hostname or "").lower()
+    if provider_norm == "openai-codex":
+        from agent.reasoning_effort import codex_supported_efforts
+        return "none" not in codex_supported_efforts(model)
     from hermes_cli import models_reasoning_caps as caps_mod
     if provider_norm == "openrouter" or host == "openrouter.ai" or host.endswith(".openrouter.ai"):
         lookup, warm = caps_mod.openrouter_model_reasoning_capabilities, caps_mod.warm_openrouter_reasoning_caps_async

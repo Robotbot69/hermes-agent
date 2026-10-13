@@ -230,7 +230,7 @@ class TestPostRedirectSsrf:
         result = json.loads(browser_tool.browser_navigate(self.PUBLIC_URL))
 
         assert result["success"] is False
-        assert "redirect landed on a private/internal address" in result["error"]
+        assert "redirect" in result["error"].lower()
 
     def test_cloud_allows_redirect_to_private_when_setting_true(self, monkeypatch, _common_patches):
         """Redirects to private addresses pass in cloud mode with allow_private_urls."""

@@ -56,3 +56,13 @@ def file_mutation_result_landed(tool_name: str, result: Any) -> bool:
     if tool_name == "patch":
         return data.get("success") is True
     return False
+
+
+def structured_tool_failure(data: Any) -> bool:
+    """Classify JSON error values, including batched results, rather than key names."""
+    if isinstance(data, list):
+        return any(structured_tool_failure(item) for item in data)
+    if not isinstance(data, dict):
+        return False
+    return bool(data.get("error") or data.get("failed") or data.get("success") is False
+                or structured_tool_failure(data.get("results")))

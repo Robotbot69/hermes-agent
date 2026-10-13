@@ -65,6 +65,12 @@ def run_tool_round(
             current_turn_user_idx=current_turn_user_idx, result=result,
         )
 
+    if getattr(agent, "_guardrail_final_only", False):
+        _turn_exit_reason = "guardrail_halt"
+        final_response = agent._toolguard_controlled_halt_response(agent._tool_guardrail_halt_decision)
+        append_message(messages, {"role": "assistant", "content": final_response})
+        return _verdict("break")
+
     if not agent.quiet_mode:
         agent._vprint(f"{agent.log_prefix}🔧 Processing {len(assistant_message.tool_calls)} tool call(s)...")
 
@@ -175,19 +181,10 @@ def run_tool_round(
 
     if agent._tool_guardrail_halt_decision is not None:
         decision = agent._tool_guardrail_halt_decision
-        _turn_exit_reason = "guardrail_halt"
-        final_response = agent._toolguard_controlled_halt_response(decision)
-        agent._emit_diagnostic_status(f"⚠️ Tool guardrail halted {decision.tool_name}: {decision.code}")
-        append_message(messages, {"role": "assistant", "content": final_response})
-        # Emit the halt so it isn't mistaken for a crash; the stream callback is still
-        # alive, so SSE/TUI clients see the explanation.
-        if final_response:
-            agent._safe_print(f"\n{final_response}\n")
-            if agent.stream_delta_callback:
-                with suppress(Exception):
-                    agent.stream_delta_callback(final_response)
-                    agent.stream_delta_callback(None)
-        return _verdict("break")
+        agent._emit_diagnostic_status(f"⚠️ Tool guardrail stopped {decision.tool_name}: {decision.code}; composing a final answer")
+        agent._guardrail_final_only = True
+        agent._budget_grace_call = True
+        return _verdict("continue")
 
     # Reset per-turn retry counters so one truncation can't poison the turn.
     truncated_tool_call_retries = 0
