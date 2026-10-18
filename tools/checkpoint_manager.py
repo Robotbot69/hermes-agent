@@ -782,7 +782,7 @@ class CheckpointManager:
         are dropped when the store exceeds this after a commit.
     max_file_size_mb : int
         Skip adding any single file larger than this to a checkpoint.
-        (Implemented via ``.gitignore`` excludes + a post-stage size check.)
+        (Filtered before staging, with a second size check for concurrent growth.)
     """
 
     def __init__(
@@ -874,8 +874,9 @@ class CheckpointManager:
         index_file = _index_path(store, dir_hash)
 
         # Stage the current tree so the name-only diff sees new files too.
-        _run_git(["add", "-A"], store, abs_dir,
-                 timeout=_GIT_TIMEOUT * 2, index_file=index_file)
+        staged, stage_error = self._stage_current_tree(store, abs_dir, index_file)
+        if not staged:
+            return {"success": False, "error": "Could not stage current state: " + stage_error}
         ok, names_out, err = _run_git(
             ["diff", "--name-only", "-z", commit_hash, "--cached"],
             store, abs_dir, index_file=index_file,
@@ -897,7 +898,12 @@ class CheckpointManager:
                     "ledger_empty": True}
         restore: list[str] = []
         skipped: list[str] = []
-        for rel in filter(None, names_out.split("\x00")):
+        changed = set(filter(None, names_out.split("\x00")))
+        # Capped files are intentionally absent from the index, but still need
+        # ownership checks and an explicit skipped_oversize restore receipt.
+        changed.update(str(Path(name).relative_to(abs_dir)) for name in ledger
+                       if Path(name).is_relative_to(abs_dir) and self._exceeds_size_cap(Path(name)))
+        for rel in sorted(changed):
             abs_path = Path(abs_dir) / rel
             entry = ledger.get(str(abs_path))
             recorded = entry.get("sha256") if isinstance(entry, dict) else None
@@ -908,9 +914,15 @@ class CheckpointManager:
                 continue
             current = _hash_file(abs_path)
             if current is None:
-                # File deleted since Hermes wrote it: restoring it back is
-                # safe — its last content was Hermes-authored.
-                restore.append(rel)
+                # A read failure is not proof of deletion or unchanged ownership.
+                try:
+                    abs_path.lstat()
+                except FileNotFoundError:
+                    restore.append(rel)
+                except OSError:
+                    skipped.append(rel)
+                else:
+                    skipped.append(rel)
             elif current == recorded:
                 restore.append(rel)
             else:
@@ -1055,8 +1067,9 @@ class CheckpointManager:
         index_file = _index_path(store, dir_hash)
 
         # Stage current state into the per-project index to compare.
-        _run_git(["add", "-A"], store, abs_dir,
-                 timeout=_GIT_TIMEOUT * 2, index_file=index_file)
+        staged, stage_error = self._stage_current_tree(store, abs_dir, index_file)
+        if not staged:
+            return {"success": False, "error": "Could not stage current state: " + stage_error}
 
         ok_stat, stat_out, _ = _run_git(
             ["diff", "--stat", commit_hash, "--cached"],
@@ -1461,20 +1474,11 @@ class CheckpointManager:
             # First snapshot for this project.
             index_file.parent.mkdir(parents=True, exist_ok=True)
 
-        # Stage with per-project index.  Include a per-stage file-size filter
-        # via ``core.bigFileThreshold`` is not what we want — instead, we
-        # rely on the exclude file for broad patterns and post-stage prune
-        # any path whose size exceeds max_file_size_mb.
-        ok, _, err = _run_git(
-            ["add", "-A"], store, working_dir,
-            timeout=_GIT_TIMEOUT * 2, index_file=index_file,
-        )
+        # Do not let excluded content enter Git's object store, even temporarily.
+        ok, err = self._stage_current_tree(store, working_dir, index_file)
         if not ok:
             logger.debug("Checkpoint git-add failed: %s", err)
             return False
-
-        if self.max_file_size_mb > 0:
-            self._drop_oversize_from_index(store, working_dir, index_file)
 
         # Compare against the current ref tip (not HEAD — HEAD points to a
         # branch that doesn't exist on a bare store, so ``diff --cached``
@@ -1561,6 +1565,76 @@ class CheckpointManager:
 
         return True
 
+    def _stage_current_tree(self, store: Path, working_dir: str, index_file: Path) -> tuple[bool, str]:
+        """Apply the size/readability policy before Git can store file contents."""
+        ok, output, error = _run_git(
+            ["ls-files", "--cached", "--others", "--exclude-standard", "--deduplicate", "-z"],
+            store, working_dir, index_file=index_file,
+        )
+        if not ok:
+            return False, error
+        eligible, excluded = [], []
+        root = _normalize_path(working_dir)
+        for relative in dict.fromkeys(filter(None, output.split("\x00"))):
+            path = root / relative
+            blocked = any(parent.is_symlink() or (parent.exists() and not parent.is_dir())
+                          for parent in path.parents if parent != root and parent.is_relative_to(root))
+            if blocked or (path.exists() and (self._exceeds_size_cap(path) or not os.access(path, os.R_OK))):
+                excluded.append(relative)
+            elif path.is_dir():
+                head_exists, error = self._nested_head_exists(path, store, working_dir)
+                if head_exists is None:
+                    return False, error
+                (eligible if head_exists else excluded).append(relative)
+            else:
+                eligible.append(relative)
+        for args, paths in ((["rm", "--cached", "--force", "--ignore-unmatch", "--quiet"], excluded),
+                            (["add", "-A"], eligible)):
+            if not paths:
+                continue
+            try:
+                with tempfile.NamedTemporaryFile(dir=store, delete=False) as stream:
+                    pathspec = Path(stream.name)
+                    stream.write(b"\x00".join(os.fsencode(name) for name in paths) + b"\x00")
+                try:
+                    ok, _, error = _run_git(
+                        args + ["--pathspec-from-file=" + str(pathspec), "--pathspec-file-nul"],
+                        store, working_dir, timeout=_GIT_TIMEOUT * 2, index_file=index_file,
+                        extra_env={"GIT_LITERAL_PATHSPECS": "1"},
+                    )
+                finally:
+                    pathspec.unlink(missing_ok=True)
+            except OSError as exc:
+                return False, str(exc)
+            if not ok:
+                return False, error
+        if excluded:
+            logger.info("Checkpoint excluded %d oversized, unreadable or unborn-repository paths", len(excluded))
+        # A writer may grow a file after enumeration; retain the post-stage guard.
+        return self._drop_oversize_from_index(store, working_dir, index_file)
+
+    def _nested_head_exists(self, path: Path, store: Path, working_dir: str) -> tuple[bool | None, str]:
+        """Git reports embedded repositories as directory entries, including unborn ones."""
+        marker = path / ".git"
+        if not marker.exists():
+            return True, ""
+        try:
+            gitdir = marker
+            if marker.is_file():
+                line = marker.read_text(encoding="utf-8-sig", errors="surrogateescape").strip()
+                if not line.startswith("gitdir: "):
+                    return None, "Invalid nested gitdir marker"
+                gitdir = Path(line[8:])
+                if not gitdir.is_absolute():
+                    gitdir = path / gitdir
+        except OSError as exc:
+            return None, str(exc)
+        ok, _, error = _run_git(
+            ["--git-dir=" + str(gitdir), "--work-tree=" + str(path), "rev-parse", "--verify", "--quiet", "HEAD"],
+            store, working_dir, allowed_returncodes={1},
+        )
+        return (True, "") if ok else ((None, error) if error else (False, ""))
+
     def _exceeds_size_cap(self, path: Path) -> bool:
         """Whether *path* is larger than ``max_file_size_mb``.
 
@@ -1579,20 +1653,22 @@ class CheckpointManager:
 
     def _drop_oversize_from_index(
         self, store: Path, working_dir: str, index_file: Path,
-    ) -> None:
+    ) -> tuple[bool, str]:
         """Remove any staged file larger than ``max_file_size_mb`` from the index.
 
         Lets the agent keep snapshotting source code while refusing to
         swallow generated assets (datasets, model weights, logs, videos).
         """
         if self.max_file_size_mb <= 0:
-            return
-        ok, stdout, _ = _run_git(
+            return True, ""
+        ok, stdout, error = _run_git(
             ["ls-files", "--cached", "-z"],
             store, working_dir, index_file=index_file,
         )
-        if not ok or not stdout:
-            return
+        if not ok:
+            return False, error
+        if not stdout:
+            return True, ""
         # NUL separators preserve whitespace within each literal filename.
         paths = [p for p in stdout.split("\x00") if p]
         abs_workdir = _normalize_path(working_dir)
@@ -1604,7 +1680,7 @@ class CheckpointManager:
             rel for rel in paths if self._exceeds_size_cap(abs_workdir / rel)
         ]
         if not oversize:
-            return
+            return True, ""
         logger.debug(
             "Checkpoint: dropping %d oversize file(s) (>%d MB) from index",
             len(oversize), self.max_file_size_mb,
@@ -1614,11 +1690,14 @@ class CheckpointManager:
         BATCH = 200
         for i in range(0, len(oversize), BATCH):
             chunk = oversize[i:i + BATCH]
-            _run_git(
-                ["rm", "--cached", "--quiet", "--"] + chunk,
+            ok, _, error = _run_git(
+                ["rm", "--cached", "--force", "--quiet", "--"] + chunk,
                 store, working_dir, index_file=index_file,
-                allowed_returncodes={128},
+                extra_env={"GIT_LITERAL_PATHSPECS": "1"},
             )
+            if not ok:
+                return False, error
+        return True, ""
 
     def _prune(self, store: Path, working_dir: str, ref: str) -> None:
         """Checkpoint-take path: snapshot-count budget plus one size round, gc deferred to the
