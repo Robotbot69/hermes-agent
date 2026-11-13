@@ -59,23 +59,26 @@ def _codex_login_flow(args: Any) -> str:
     return flow
 
 
-def codex_oauth_login(args: Any) -> Dict[str, Any]:
+def codex_oauth_login(args: Any) -> dict[str, Any]:
     """Run the Codex OAuth flow selected by *args*/config; port-busy browser attempts fall back."""
     from hermes_cli import auth as auth_mod  # late: ``hermes_cli.auth.<name>`` patches must intercept
-    if _codex_login_flow(args) == "browser":
-        try:
-            return _codex_browser_login(
-                open_browser=not getattr(args, "no_browser", False),
-                timeout_seconds=getattr(args, "timeout", None))
-        except AuthError as exc:
-            if exc.code != CODEX_BROWSER_PORT_BUSY_CODE:
-                raise
-            print(_PORT_BUSY_NOTICE)
-            print()
-    print("Signing in to OpenAI Codex...")
-    print("(Hermes creates its own session — won't affect Codex CLI or VS Code)")
-    print()
-    return auth_mod._codex_device_code_login()
+    from hermes_cli.auth_codex import _codex_login_tls
+
+    with _codex_login_tls(getattr(args, "ca_bundle", None)):
+        if _codex_login_flow(args) == "browser":
+            try:
+                return _codex_browser_login(
+                    open_browser=not getattr(args, "no_browser", False),
+                    timeout_seconds=getattr(args, "timeout", None))
+            except AuthError as exc:
+                if exc.code != CODEX_BROWSER_PORT_BUSY_CODE:
+                    raise
+                print(_PORT_BUSY_NOTICE)
+                print()
+        print("Signing in to OpenAI Codex...")
+        print("(Hermes creates its own session — won't affect Codex CLI or VS Code)")
+        print()
+        return auth_mod._codex_device_code_login()
 
 
 def _codex_browser_authorize_url(*, redirect_uri: str, state: str, code_challenge: str) -> str:
@@ -85,7 +88,7 @@ def _codex_browser_authorize_url(*, redirect_uri: str, state: str, code_challeng
         "code_challenge_method": "S256", "id_token_add_organizations": "true", "state": state})
 
 
-def _codex_browser_exchange_code(code: str, *, redirect_uri: str, code_verifier: str) -> Dict[str, Any]:
+def _codex_browser_exchange_code(code: str, *, redirect_uri: str, code_verifier: str) -> dict[str, Any]:
     """Swap the authorization code for tokens at the token endpoint the device flow also uses."""
     from hermes_cli.auth_codex import _codex_login_post, _codex_login_rate_limited_error
     token_resp = _codex_login_post(
@@ -108,7 +111,7 @@ def _codex_browser_exchange_code(code: str, *, redirect_uri: str, code_verifier:
 
 
 def _codex_browser_login(
-    *, open_browser: bool = True, timeout_seconds: Optional[float] = None) -> Dict[str, Any]:
+    *, open_browser: bool = True, timeout_seconds: Optional[float] = None) -> dict[str, Any]:
     """Authorization-code + PKCE login on the loopback listener; returns the device-flow creds shape.
 
     Raises ``AuthError(code=CODEX_BROWSER_PORT_BUSY_CODE)`` when :1455 cannot be bound so the caller

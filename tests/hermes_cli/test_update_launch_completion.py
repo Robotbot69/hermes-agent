@@ -17,8 +17,12 @@ from pm.environments import runtime_facts_path
 def _no_tool_downloads(monkeypatch):
     """The launch sync publishes lockfile tools first; these tests cover the sync decision."""
     import pm.client
+    import pm.environments
 
     monkeypatch.setattr(pm.client, "ensure_tools_for_sync", lambda: None)
+    # These tests exercise the launch decision with a stubbed completion
+    # child; do not resolve the real installation's tool store for its env.
+    monkeypatch.setattr(pm.environments, "activation_environment", lambda _: dict(os.environ))
 
 
 @pytest.fixture
@@ -300,7 +304,7 @@ def test_relaunch_keeps_invocation_and_checkout_imports(tmp_path, mode):
         argv[0] = "-c"
         orig = [sys.executable, "-c", "import entry", *argv[1:]]
     command = venv_sync.relaunch_command(Path(sys.executable), root, argv, orig, module)
-    result = subprocess.run(command, cwd=tmp_path, capture_output=True, text=True, timeout=30)
+    result = subprocess.run(command, cwd=tmp_path, capture_output=True, text=True, timeout=30, check=False)
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout) == ["from checkout", argv[1:]]
 
@@ -333,7 +337,7 @@ def test_failed_launch_keeps_previous_completion_and_retries(tmp_path, monkeypat
     monkeypatch.setenv("HERMES_HOME", str(tmp_path / "home"))
     fact = runtime_facts_path(root)
     fact.parent.mkdir(parents=True)
-    previous = '{"packages":{"venv":{"stamp":"previous","extras":["all","anthropic"]}}}'
+    previous = '{"schema":1,"packages":{"venv":{"stamp":"previous","extras":["all","anthropic"]}}}'
     fact.write_text(previous)
     monkeypatch.setattr(pm, "venv_is_current", lambda **kw: False)
     calls = []
@@ -347,6 +351,50 @@ def test_failed_launch_keeps_previous_completion_and_retries(tmp_path, monkeypat
         assert fact.read_text() == previous
     assert calls == [None, None]
     assert not (root / ".update-incomplete").exists()
+    may_retry, attempts, backoff = venv_sync.completion_retry_state(root)
+    assert not may_retry
+    assert attempts == 2
+    assert backoff > 0
+    from hermes_cli import _launchers
+    monkeypatch.setattr(_launchers, "resolve_store_python", lambda _, **__: Path(sys.executable))
+    monkeypatch.setattr(venv_sync, "publish_launchers", lambda _: None)
+    # A third ordinary launch preserves the previous generation and does
+    # not repeat the failed dependency build during the backoff window.
+    assert venv_sync.prepare_launch(root, []) is None
+    assert calls == [None, None]
+    assert fact.read_text() == previous
+    assert venv_sync.completion_pending_path(root).is_file()
+
+
+@pytest.mark.parametrize("corrected", ["uv.lock", "setup.py"])
+def test_failed_dependency_sync_backs_off_only_for_the_same_inputs(tmp_path, monkeypatch, corrected):
+    """A failed launch sync counts toward the retry bound, so relaunches stop redoing the same
+    failing repair (#139952); a corrected source update is a different repair and runs."""
+    import pm
+    from hermes_cli import _launchers
+
+    root = _self_checkout(tmp_path, monkeypatch)
+    syncs = []
+
+    def failing_sync(*args, **kwargs):
+        syncs.append(args)
+        raise RuntimeError("sync failed")
+
+    monkeypatch.setattr(pm, "venv_is_current", lambda **kw: False)
+    monkeypatch.setattr(pm, "sync_venv", failing_sync)
+    monkeypatch.setattr(_launchers, "resolve_store_python", lambda _, **__: Path(sys.executable))
+    for _ in range(venv_sync.COMPLETION_RETRY_BACKOFF_ATTEMPTS):
+        with pytest.raises(RuntimeError, match="sync failed"):
+            venv_sync.prepare_launch(root, [])
+    assert venv_sync.completion_pending_path(root).is_file()
+
+    assert venv_sync.prepare_launch(root, []) is None, "a backed-off stale launch must not relaunch"
+    assert len(syncs) == venv_sync.COMPLETION_RETRY_BACKOFF_ATTEMPTS, "the same failing repair re-ran"
+
+    (root / corrected).write_text("# corrected source update\n", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="sync failed"):
+        venv_sync.prepare_launch(root, [])
+    assert len(syncs) == venv_sync.COMPLETION_RETRY_BACKOFF_ATTEMPTS + 1, "changed inputs were not retried"
 
 
 def test_blessed_legacy_install_is_adopted_before_sync(tmp_path, monkeypatch, completion_tail):
@@ -376,7 +424,7 @@ def test_relaunch_runs_zip_launchers_and_preserves_interpreter_options(tmp_path)
         archive.writestr("__main__.py", "import json,sys; print(json.dumps([sys.argv[1:], sys.stdout.write_through, sys.flags.utf8_mode]))")
     original = [sys.executable, "-u", "-X", "utf8", str(launcher), "arg with spaces"]
     command = venv_sync.relaunch_command(Path(sys.executable), tmp_path, [str(launcher), "arg with spaces"], original, "__main__")
-    result = subprocess.run(command, capture_output=True, text=True, timeout=30)
+    result = subprocess.run(command, capture_output=True, text=True, timeout=30, check=False)
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout) == [["arg with spaces"], True, 1]
 
@@ -423,6 +471,19 @@ def test_launch_under_the_owning_update_does_not_run_the_tail_again(tmp_path, mo
     assert venv_sync.prepare_launch(root, []) is None
     assert completion_tail == []
     assert pending.is_file(), "the owning update's obligation was discharged by its own tail"
+
+
+def test_gateway_status_skips_pending_source_update_completion(tmp_path, monkeypatch, completion_tail):
+    """`gateway status` remains a read-only recovery diagnostic while a tail is owed (#139133)."""
+    import pm
+
+    root = _self_checkout(tmp_path, monkeypatch)
+    pending = venv_sync.arm_completion(root)
+    monkeypatch.setattr(pm, "venv_is_current", lambda **_kw: pytest.fail("status started a dependency sync"))
+
+    assert venv_sync.prepare_launch(root, ["gateway", "status"]) is None
+    assert completion_tail == []
+    assert pending.is_file(), "a status query must leave the update tail for `hermes gateway restart`"
 
 
 @pytest.mark.parametrize("marker,value,owed_by_cli", [
